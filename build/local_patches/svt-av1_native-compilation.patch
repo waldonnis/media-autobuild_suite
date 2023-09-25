@@ -1,0 +1,13 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 7cabadd0..c323164b 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -313,7 +313,7 @@ if(MSVC)
+     check_both_flags_add(TYPE DEBUG /Od)
+ else()
+     check_both_flags_add(PREPEND -Wall)
+-    option(NATIVE "Build for native performance (march=native)" OFF)
++    option(NATIVE "Build for native performance (march=native)" ON)
+     if(NATIVE)
+         check_both_flags_add(-march=native)
+     endif()

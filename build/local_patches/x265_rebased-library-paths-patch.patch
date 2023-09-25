@@ -1,0 +1,16 @@
+diff --git a/source/CMakeLists.txt b/source/CMakeLists.txt
+index 882ea0697..b62210e37 100755
+--- a/source/CMakeLists.txt
++++ b/source/CMakeLists.txt
+@@ -726,7 +728,10 @@ if(X265_LATEST_TAG)
+     # convert lists of link libraries into -lstdc++ -lm etc..
+     foreach(LIB ${CMAKE_CXX_IMPLICIT_LINK_LIBRARIES} ${PLATFORM_LIBS})
+         if(IS_ABSOLUTE ${LIB} AND EXISTS ${LIB})
+-            list(APPEND PLIBLIST "${LIB}")
++            get_filename_component(LIB_NAME ${LIB} NAME_WE)
++            get_filename_component(LIB_PATH ${LIB} DIRECTORY)
++            string(REGEX REPLACE "^lib" "" LIB_NAME "${LIB_NAME}")
++            list(APPEND PLIBLIST "-L${LIB_PATH} -l${LIB_NAME}")
+         else()
+             list(APPEND PLIBLIST "-l${LIB}")
+         endif()

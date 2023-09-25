@@ -1,0 +1,13 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index b65a8c0..fc115e9 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -110,7 +110,7 @@ set( VVDEC_INSTALL_VVDECAPP                 OFF CACHE BOOL   "Enable or disable
+ # enable postfix
+ set( VVDEC_ENABLE_BUILD_TYPE_POSTFIX        OFF CACHE BOOL   "Enable or disable build type postfix for apps and libs" )
+ 
+-set( VVDEC_ENABLE_LINK_TIME_OPT             ON  CACHE BOOL   "Enable link time optimization for release and profile builds" )
++set( VVDEC_ENABLE_LINK_TIME_OPT             ON  CACHE BOOL   "Enable link time optimization for release and profile builds" FORCE )
+ 
+ set( VVDEC_ENABLE_WARNINGS_AS_WERROR        ON  CACHE BOOL   "Treat warnings as errors (-Werror or /WX)" )
+ 

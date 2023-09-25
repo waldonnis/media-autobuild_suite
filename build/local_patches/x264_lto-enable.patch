@@ -1,0 +1,47 @@
+diff --git a/configure b/configure
+index e242e73c..36052b05 100755
+--- a/configure
++++ b/configure
+@@ -38,7 +38,7 @@ Configuration options:
+ 
+ Advanced options:
+   --disable-asm            disable platform-specific assembly optimizations
+-  --enable-lto             enable link-time optimization
++  --disable-lto            enable link-time optimization
+   --enable-debug           add -g
+   --enable-gprof           add -pg
+   --enable-strip           add -s
+@@ -380,7 +380,7 @@ thread="auto"
+ swscale="auto"
+ asm="auto"
+ interlaced="yes"
+-lto="no"
++lto="auto"
+ debug="no"
+ gprof="no"
+ strip="no"
+@@ -499,8 +499,8 @@ for opt do
+         --disable-swscale)
+             swscale="no"
+             ;;
+-        --enable-lto)
+-            lto="auto"
++        --disable-lto)
++            lto="no"
+             ;;
+         --enable-debug)
+             debug="yes"
+@@ -1336,10 +1336,10 @@ if [ "$debug" = "yes" ]; then
+     RCFLAGS="$RCFLAGS -DDEBUG"
+ else
+     CFLAGS="-O3 -ffast-math $CFLAGS"
+-    if [ "$lto" = "auto" ] && [ $compiler = GNU ] && cc_check "" "-flto" ; then
++    if [ "$lto" = "auto" ] && [ $compiler = GNU ] && cc_check "" "-flto=auto" ; then
+         lto="yes"
+-        CFLAGS="$CFLAGS -flto"
+-        LDFLAGS="$LDFLAGS -O3 -flto"
++        CFLAGS="$CFLAGS -flto=auto"
++        LDFLAGS="$LDFLAGS -O3 -flto=auto"
+     fi
+ fi
+ [ "$lto" = "auto" ] && lto="no"

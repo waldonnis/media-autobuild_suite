@@ -1,0 +1,13 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 491effa..0fc70b5 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -79,7 +79,7 @@ if( CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR
+   # enable address sanitizer
+   set( VVENC_USE_ADDRESS_SANITIZER          OFF CACHE BOOL   "Enable or disable address sanitizer" )
+ 
+-  set( VVENC_OPT_TARGET_ARCH                ""  CACHE STRING "Enable or disable building with architecture specific optimization" )
++  set( VVENC_OPT_TARGET_ARCH                "znver3"  CACHE STRING "Enable or disable building with architecture specific optimization" )
+ endif()
+ 
+ 

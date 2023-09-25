@@ -1,0 +1,13 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index b65a8c0..fc115e9 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -122,7 +122,7 @@ if( CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR
+   set( VVDEC_USE_THREAD_SANITIZER           OFF CACHE BOOL   "Enable or disable thread sanitizer" )
+ 
+   # add -march=native
+-  set( VVDEC_OPT_TARGET_ARCH                ""  CACHE STRING "Enable or disable building with architecture specific optimization" )
++  set( VVDEC_OPT_TARGET_ARCH                "znver3"  CACHE STRING "Enable or disable building with architecture specific optimization" )
+ endif()
+ 
+ if( VVDEC_ENABLE_BUILD_TYPE_POSTFIX )
