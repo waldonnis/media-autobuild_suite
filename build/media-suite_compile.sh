@@ -1369,7 +1369,6 @@ if [[ $ffmpeg != no ]] && enabled libuavs3d &&
     do_checkIfExist
 fi
 
-# CCC
 _check=(bin-video/dovi_tool.exe)
 if [[ $dovitool = y ]] &&
     do_vcs "$SOURCE_REPO_DOVI_TOOL"; then
