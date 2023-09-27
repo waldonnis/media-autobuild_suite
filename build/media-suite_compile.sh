@@ -1375,7 +1375,7 @@ if [[ $dovitool = y ]] &&
 
     # dovi_tool
     do_uninstall "${_check[@]}"
-    do_rust
+    RUSTFLAGS="-C target-cpu=native" do_rust
     do_install "target/$CARCH-pc-windows-gnu/release/dovi_tool.exe" bin-video/
     do_checkIfExist
 fi
@@ -1385,7 +1385,7 @@ if [[ $hdr10plustool = y ]] &&
     do_vcs "$SOURCE_REPO_HDR10PLUS_TOOL"; then
 
     do_uninstall "${_check[@]}"
-    do_rust
+    RUSTFLAGS="-C target-cpu=native" do_rust
     do_install "target/$CARCH-pc-windows-gnu/release/hdr10plus_tool.exe" bin-video/
     do_checkIfExist
 fi
