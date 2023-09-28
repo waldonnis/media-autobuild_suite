@@ -492,7 +492,6 @@ if { { [[ $ffmpeg != no || $standalone = y ]] && enabled libtesseract; } ||
     _deps=(libglut.a)
     _check=(libtiff{.a,-4.pc})
     if do_vcs "$SOURCE_REPO_LIBTIFF"; then
-        do_patch "https://gitlab.com/libtiff/libtiff/-/merge_requests/233.patch" am
         do_pacman_install libjpeg-turbo xz zlib zstd libdeflate
         do_uninstall "${_check[@]}"
         grep_or_sed 'Requires.private' libtiff-4.pc.in \
@@ -525,13 +524,6 @@ if [[ $ffmpeg != no || $standalone = y ]] && enabled libwebp &&
 fi
 
 if [[ $jpegxl = y ]] || { [[ $ffmpeg != no ]] && enabled libjxl; }; then
-    _check=(libhwy.a libhwy.pc hwy/highway.h)
-    if do_vcs "$SOURCE_REPO_LIBHWY"; then
-        do_uninstall "${_check[@]}" include/hwy
-        CXXFLAGS+=" -DHWY_COMPILE_ALL_ATTAINABLE" do_cmakeinstall -DHWY_ENABLE_TESTS=OFF
-        do_checkIfExist
-    fi
-
     _check=(bin/gflags_completions.sh gflags.pc gflags/gflags.h libgflags{,_nothreads}.a)
     if do_vcs "$SOURCE_REPO_GFLAGS"; then
         do_patch "https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/gflags/0001-cmake-chop-off-.lib-extension-from-shlwapi.patch" am
@@ -541,7 +533,7 @@ if [[ $jpegxl = y ]] || { [[ $ffmpeg != no ]] && enabled libjxl; }; then
         do_checkIfExist
     fi
 
-    _deps=(libhwy.a libgflags.a)
+    _deps=(libgflags.a)
     _check=(libjxl{{,_dec,_threads}.a,.pc} jxl/decode.h)
     [[ $jpegxl = y ]] && _check+=(bin-global/{{c,d}jxl,cjpegli,jxlinfo}.exe)
     if do_vcs "$SOURCE_REPO_LIBJXL"; then
@@ -552,7 +544,7 @@ if [[ $jpegxl = y ]] || { [[ $ffmpeg != no ]] && enabled libjxl; }; then
         log -q "git.submodule" git submodule update --init --recursive
         [[ $jpegxl = y ]] || extracommands=("-DJPEGXL_ENABLE_TOOLS=OFF")
         do_cmakeinstall global -D{BUILD_TESTING,JPEGXL_ENABLE_{BENCHMARK,DOXYGEN,MANPAGES,OPENEXR,SKCMS,EXAMPLES}}=OFF \
-            -DJPEGXL_{FORCE_SYSTEM_{BROTLI,HWY},STATIC}=ON -DJPEGXL_BUNDLE_GFLAGS=OFF "${extracommands[@]}"
+            -DJPEGXL_{FORCE_SYSTEM_BROTLI,STATIC}=ON "${extracommands[@]}"
         do_checkIfExist
         unset extracommands
     fi
@@ -758,7 +750,9 @@ if { [[ $ffmpeg != no ]] && enabled libfdk-aac; } || [[ $fdkaac = y ]]; then
         do_vcs "$SOURCE_REPO_FDKAACEXE" bin-fdk-aac; then
         do_autoreconf
         do_uninstall "${_check[@]}"
-        do_separate_confmakeinstall audio
+        CFLAGS+=" $($PKG_CONFIG --cflags fdk-aac)" \
+        LDFLAGS+=" $($PKG_CONFIG --cflags --libs fdk-aac)"
+            do_separate_confmakeinstall audio
         do_checkIfExist
     fi
 fi
@@ -1407,7 +1401,9 @@ if [[ $mediainfo = y ]]; then
     if do_vcs "$SOURCE_REPO_LIBMEDIAINFO" libmediainfo; then
         do_uninstall include/MediaInfo{,DLL} bin-global/libmediainfo-config \
             "${_check[@]}" libmediainfo.la lib/cmake/mediainfolib
-        do_cmakeinstall Project/CMake -DBUILD_ZLIB=off -DBUILD_ZENLIB=off
+        CFLAGS+=" $($PKG_CONFIG --cflags libzen)" \
+        LDFLAGS+=" $($PKG_CONFIG --cflags --libs libzen)" \
+            do_cmakeinstall Project/CMake -DBUILD_ZLIB=off -DBUILD_ZENLIB=off
         do_checkIfExist
     fi
     fix_cmake_crap_exports "$LOCALDESTDIR/lib/cmake/mediainfolib"
