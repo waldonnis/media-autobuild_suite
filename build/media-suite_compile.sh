@@ -2162,10 +2162,10 @@ if [[ $ffmpeg != no ]]; then
             unset _openal_flag
         fi
 
-        #if [[ ${#FFMPEG_OPTS[@]} -gt 35 ]]; then
+        if [[ ${#FFMPEG_OPTS[@]} -gt 35 ]]; then
             # remove redundant -L and -l flags from extralibs
-            #do_patch "https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/ffmpeg/0001-configure-deduplicate-linking-flags.patch" am
-        #fi
+            do_patch "https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/ffmpeg/0001-configure-deduplicate-linking-flags.patch" am
+        fi
 
         _patches=$(git rev-list origin/master.. --count)
         [[ $_patches -gt 0 ]] &&
