@@ -1379,9 +1379,6 @@ if [[ $dovitool = y ]] &&
     cd dolby_vision
     RUSTFLAGS="-C target-cpu=native" do_rustcinstall --bindir="$LOCALDESTDIR"/bin-video/
     do_install "target/$CARCH-pc-windows-gnu/release/dovi_tool.exe" bin-video/
-    cd dolby_vision
-    RUSTFLAGS="-C target-cpu=native" do_rustcinstall --bindir="$LOCALDESTDIR"/bin-video/
-    do_checkIfExist
 fi
 
 _check=(bin-video/hdr10plus_tool.exe)
