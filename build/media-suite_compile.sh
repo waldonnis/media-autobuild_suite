@@ -1176,6 +1176,8 @@ if [[ $libavif = y ]] && {
         pc_exists "aom" || pc_exists "dav1d" || pc_exists "rav1e"
     } &&
     do_vcs "$SOURCE_REPO_LIBAVIF"; then
+    # chop off any .lib suffixes that is attached to a library name
+    grep_and_sed '\.lib' CMakeLists.txt 's|(\w)\.lib\b|\1|g'
     do_uninstall "${_check[@]}"
     do_pacman_install libjpeg-turbo
     extracommands=()
@@ -1795,7 +1797,6 @@ _check=(librist.{a,pc} librist/librist.h)
 [[ $standalone = y ]] && _check+=(bin-global/rist{sender,receiver,2rist,srppasswd}.exe)
 if enabled librist && do_vcs "$SOURCE_REPO_LIBRIST"; then
     do_pacman_install cjson
-    do_patch "https://code.videolan.org/1480c1/librist/-/commit/0dc32581ceb0af14b71d4f548eacdd51b775c0ad.patch" am
     do_uninstall include/librist "${_check[@]}"
     extracommands=("-Dbuiltin_cjson=false")
     [[ $standalone = y ]] || extracommands+=("-Dbuilt_tools=false")
@@ -1946,14 +1947,16 @@ _check=(libvulkan.a vulkan.pc vulkan/vulkan.h d3d{kmthk,ukmdt}.h)
 if { { [[ $ffmpeg != no ]] && enabled_any vulkan libplacebo; } ||
      { [[ $mpv != n ]] && ! mpv_disabled_any vulkan libplacebo; } } &&
     do_vcs "$SOURCE_REPO_VULKANLOADER" vulkan-loader; then
-    _DeadSix27=https://raw.githubusercontent.com/DeadSix27/python_cross_compile_script/master
-    _mabs=https://raw.githubusercontent.com/m-ab-s/mabs-patches/master
-    _shinchiro=https://raw.githubusercontent.com/shinchiro/mpv-winbuild-cmake/master
+    _wine_mirror=https://raw.githubusercontent.com/wine-mirror/wine/master/include
+    _mabs=https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/vulkan-loader
     do_pacman_install uasm
     do_uninstall "${_check[@]}"
-    do_patch "$_mabs/vulkan-loader/0001-loader-cross-compile-static-linking-hacks.patch" am
-    do_patch "$_mabs/vulkan-loader/0002-pc-remove-CMAKE_CXX_IMPLICIT_LINK_LIBRARIES.patch" am
-    do_patch "$_mabs/vulkan-loader/0003-loader-prefix-cjson-symbols-and-mark-most-as-static.patch" am
+    do_patch "$_mabs/0001-pc-remove-CMAKE_CXX_IMPLICIT_LINK_LIBRARIES.patch" am
+    do_patch "$_mabs/0002-loader-loader_windows-Static-linking-hacks.patch" am
+    do_patch "$_mabs/0003-loader-CMake-related-static-hacks.patch" am
+    do_patch "$_mabs/0004-loader-Add-private-libs-to-pc-file.patch" am
+    do_patch "$_mabs/0005-loader-Static-library-name-related-hacks.patch" am
+
     grep_and_sed VULKAN_LIB_SUFFIX loader/vulkan.pc.in \
             's/@VULKAN_LIB_SUFFIX@//'
     create_build_dir
@@ -1962,8 +1965,8 @@ if { { [[ $ffmpeg != no ]] && enabled_any vulkan libplacebo; } ||
         do_print_progress "Installing Vulkan-Headers"
         do_uninstall include/vulkan
         do_cmakeinstall
-        do_wget -c -r -q "$_DeadSix27/additional_headers/d3dkmthk.h"
-        do_wget -c -r -q "$_DeadSix27/additional_headers/d3dukmdt.h"
+        do_wget -c -r -q "$_wine_mirror/ddk/d3dkmthk.h"
+        do_wget -c -r -q "$_wine_mirror/d3dukmdt.h"
         do_install d3d{kmthk,ukmdt}.h include/
     cd_safe "$(get_first_subdir -f)"
     do_print_progress "Building Vulkan-Loader"
@@ -1973,7 +1976,7 @@ if { { [[ $ffmpeg != no ]] && enabled_any vulkan libplacebo; } ||
     -DVULKAN_HEADERS_INSTALL_DIR="$LOCALDESTDIR" \
     -DBUILD_STATIC_LOADER=ON -DUNIX=OFF -DENABLE_WERROR=OFF
     do_checkIfExist
-    unset _DeadSix27 _mabs _shinchiro
+    unset _wine_mirror _mabs
 fi
 
 if [[ $exitearly = EE5 ]]; then
