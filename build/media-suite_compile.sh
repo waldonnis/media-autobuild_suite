@@ -1518,7 +1518,7 @@ if [[ $bits = 32bit ]]; then
 elif { [[ $svthevc = y ]] || enabled libsvthevc; } &&
     do_vcs "$SOURCE_REPO_SVTHEVC"; then
     do_uninstall "${_check[@]}" include/svt-hevc
-    do_cmakeinstall video -DUNIX=OFF
+    do_cmakeinstall video -DUNIX=OFF -DNATIVE=ON
     do_checkIfExist
 fi
 
@@ -1529,7 +1529,7 @@ if [[ $bits = 32bit ]]; then
 elif { [[ $svtav1 = y ]] || enabled libsvtav1; } &&
     do_vcs "$SOURCE_REPO_SVTAV1"; then
     do_uninstall include/svt-av1 "${_check[@]}" include/svt-av1
-    do_cmakeinstall video -DUNIX=OFF
+    do_cmakeinstall video -DUNIX=OFF -DSVT_AV1_LTO=ON -DNATIVE=ON
     do_checkIfExist
 fi
 
@@ -1540,7 +1540,7 @@ if [[ $bits = 32bit ]]; then
 elif { [[ $svtvp9 = y ]] || enabled libsvtvp9; } &&
     do_vcs "$SOURCE_REPO_SVTVP9"; then
     do_uninstall include/svt-vp9 "${_check[@]}" include/svt-vp9
-    do_cmakeinstall video -DUNIX=OFF
+    do_cmakeinstall video -DUNIX=OFF -DNATIVE=ON
     do_checkIfExist
 fi
 
@@ -1917,7 +1917,8 @@ _check=(bin-video/vvenc{,FF}app.exe
 if [[ $bits = 64bit && $vvenc = y ]] &&
     do_vcs "$SOURCE_REPO_LIBVVENC"; then
     do_uninstall include/vvenc lib/cmake/vvenc "${_check[@]}"
-    do_cmakeinstall video -DVVENC_ENABLE_LINK_TIME_OPT=OFF -DVVENC_INSTALL_FULLFEATURE_APP=ON
+    do_cmakeinstall video -DVVENC_ENABLE_LINK_TIME_OPT=ON -DVVENC_INSTALL_FULLFEATURE_APP=ON \
+        -DVVENC_OPT_TARGET_ARCH=znver3
     do_checkIfExist
 fi
 
@@ -1928,7 +1929,8 @@ _check=(bin-video/vvdecapp.exe
 if [[ $bits = 64bit && $vvdec = y ]] &&
     do_vcs "$SOURCE_REPO_LIBVVDEC"; then
     do_uninstall include/vvdec lib/cmake/vvdec "${_check[@]}"
-    do_cmakeinstall video -DVVDEC_ENABLE_LINK_TIME_OPT=OFF -DVVDEC_INSTALL_VVDECAPP=ON
+    do_cmakeinstall video -DVVDEC_ENABLE_LINK_TIME_OPT=OFF -DVVDEC_INSTALL_VVDECAPP=ON \
+        -DVVDEC_ENABLE_LINK_TIME_OPT=ON -DVVDEC_OPT_TARGET_ARCH=znver3
     do_checkIfExist
 fi
 
