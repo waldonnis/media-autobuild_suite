@@ -244,6 +244,10 @@ if { enabled_any libxml2 libbluray || [[ $cyanrip = y ]] || ! mpv_disabled libbl
     do_checkIfExist
 fi
 
+# Fixes an issue with ordering with libbluray libxml2 and libz and liblzma
+# Probably caused by https://gitlab.gnome.org/GNOME/libxml2/-/commit/93e8bb2a402012858500b608b4146cd5c756e34d
+grep_or_sed Requires.private "$LOCALDESTDIR/lib/pkgconfig/libxml-2.0.pc" 's/Requires:/Requires.private:/'
+
 if [[ $ffmpeg != no ]] && enabled libaribb24; then
     _check=(libpng.{pc,{,l}a} libpng16.{pc,{,l}a} libpng16/png.h)
     if do_vcs "$SOURCE_REPO_LIBPNG"; then
@@ -1956,7 +1960,7 @@ if { { [[ $ffmpeg != no ]] && enabled_any vulkan libplacebo; } ||
     do_patch "$_mabs/0001-pc-remove-CMAKE_CXX_IMPLICIT_LINK_LIBRARIES.patch" am
     do_patch "$_mabs/0002-loader-loader_windows-Static-linking-hacks.patch" am
     do_patch "$_mabs/0003-loader-CMake-related-static-hacks.patch" am
-    do_patch "$_mabs/0004-loader-Add-private-libs-to-pc-file.patch" am
+    do_patch "$_mabs/0004-loader-Re-add-private-libs-to-pc-file.patch" am
     do_patch "$_mabs/0005-loader-Static-library-name-related-hacks.patch" am
 
     grep_and_sed VULKAN_LIB_SUFFIX loader/vulkan.pc.in \
