@@ -1173,6 +1173,8 @@ if { [[ $rav1e = y ]] || [[ $libavif = y ]] || enabled librav1e; } &&
 
     do_checkIfExist
 fi
+# add allow-multiple-definition to the .pc file to fix linking with other rust libraries
+sed -i 's/Libs.private:.*/& -Wl,--allow-multiple-definition/' "$LOCALDESTDIR/lib/pkgconfig/rav1e.pc" >/dev/null 2>&1
 
 _check=(libavif.{a,pc} avif/avif.h)
 [[ $standalone = y ]] && _check+=(bin-video/avif{enc,dec}.exe)
@@ -1441,15 +1443,11 @@ fi
 
 _check=(libzvbi.{h,{l,}a} zvbi-0.2.pc)
 if [[ $ffmpeg != no ]] && enabled libzvbi &&
-    do_pkgConfig "zvbi-0.2 = 0.2.35" &&
-    do_wget_sf -h 95e53eb208c65ba6667fd4341455fa27 \
-        "zapping/zvbi/0.2.35/zvbi-0.2.35.tar.bz2"; then
+    do_vcs "$SOURCE_REPO_ZVBI"; then
+    do_patch "https://github.com/zapping-vbi/zvbi/pull/42.patch" am
     do_uninstall "${_check[@]}" zvbi-0.2.pc
-    _vlc_zvbi_patches=https://raw.githubusercontent.com/videolan/vlc/master/contrib/src/zvbi
-    do_patch "$_vlc_zvbi_patches/zvbi-win32.patch"
-    # added by zvbi-win32.patch above, not needed anymore
-    sed -i 's;-lpthreadGC2 -lwsock32;;' zvbi-0.2.pc.in
-    do_separate_conf --disable-{dvb,bktr,nls,proxy} --without-doxygen
+    do_autoreconf
+    do_separate_conf --disable-{dvb,bktr,examples,nls,proxy,tests} --without-doxygen
     cd_safe src
     do_makeinstall
     cd_safe ..
@@ -2597,6 +2595,7 @@ if [[ $cyanrip = y ]]; then
     _deps=(libneon.a libxml2.a)
     _check=(musicbrainz5/mb5_c.h libmusicbrainz5{,cc}.{a,pc})
     if do_vcs "$SOURCE_REPO_LIBMUSICBRAINZ"; then
+        do_patch "https://github.com/metabrainz/libmusicbrainz/pull/19.patch" am
         do_uninstall "${_check[@]}" include/musicbrainz5
         do_cmakeinstall
         do_checkIfExist
