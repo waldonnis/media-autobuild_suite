@@ -1,0 +1,17 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 6fbccb0..4315a7d 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -788,6 +788,12 @@ if(AVIF_BUILD_APPS)
+         set_target_properties(avifdec PROPERTIES LINKER_LANGUAGE "CXX")
+     endif()
+     target_link_libraries(avifdec avif_apps)
++    if(WIN32)
++      if(MINGW)
++	 target_link_options(avifenc PUBLIC "SHELL:-municode")
++	 target_link_options(avifdec PUBLIC "SHELL:-municode")
++      endif()
++    endif()
+ 
+     if(NOT SKIP_INSTALL_APPS AND NOT SKIP_INSTALL_ALL)
+         install(
