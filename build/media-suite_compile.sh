@@ -1946,7 +1946,8 @@ if [[ $ffmpeg != no ]] && enabled avisynth &&
     do_checkIfExist
 fi
 
-_check=(libvulkan.a vulkan.pc vulkan/vulkan.h d3d{kmthk,ukmdt}.h)
+#_check=(libvulkan.a vulkan.pc vulkan/vulkan.h d3d{kmthk,ukmdt}.h)
+_check=(libvulkan-1.dll.a vulkan.pc vulkan/vulkan.h d3d{kmthk,ukmdt}.h)
 if { { [[ $ffmpeg != no ]] && enabled_any vulkan libplacebo; } ||
      { [[ $mpv != n ]] && ! mpv_disabled_any vulkan libplacebo; } } &&
     do_vcs "$SOURCE_REPO_VULKANLOADER" vulkan-loader; then
@@ -1954,14 +1955,14 @@ if { { [[ $ffmpeg != no ]] && enabled_any vulkan libplacebo; } ||
     _mabs=https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/vulkan-loader
     do_pacman_install uasm
     do_uninstall "${_check[@]}"
-    do_patch "$_mabs/0001-pc-remove-CMAKE_CXX_IMPLICIT_LINK_LIBRARIES.patch" am
-    do_patch "$_mabs/0002-loader-loader_windows-Static-linking-hacks.patch" am
-    do_patch "$_mabs/0003-loader-CMake-related-static-hacks.patch" am
-    do_patch "$_mabs/0004-loader-Re-add-private-libs-to-pc-file.patch" am
-    do_patch "$_mabs/0005-loader-Static-library-name-related-hacks.patch" am
+    #do_patch "$_mabs/0001-pc-remove-CMAKE_CXX_IMPLICIT_LINK_LIBRARIES.patch" am
+    #do_patch "$_mabs/0002-loader-loader_windows-Static-linking-hacks.patch" am
+    #do_patch "$_mabs/0003-loader-CMake-related-static-hacks.patch" am
+    #do_patch "$_mabs/0004-loader-Re-add-private-libs-to-pc-file.patch" am
+    #do_patch "$_mabs/0005-loader-Static-library-name-related-hacks.patch" am
 
-    grep_and_sed VULKAN_LIB_SUFFIX loader/vulkan.pc.in \
-            's/@VULKAN_LIB_SUFFIX@//'
+    #grep_and_sed VULKAN_LIB_SUFFIX loader/vulkan.pc.in \
+    #        's/@VULKAN_LIB_SUFFIX@//'
     create_build_dir
     log dependencies /usr/bin/python3 ../scripts/update_deps.py --no-build
     cd_safe Vulkan-Headers
