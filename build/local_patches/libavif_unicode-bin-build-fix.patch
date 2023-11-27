@@ -1,15 +1,241 @@
+From dfe9790669aac3da5154bae0f34cc95bf9dbbb79 Mon Sep 17 00:00:00 2001
+From: Vincent Rabaud <vrabaud@google.com>
+Date: Thu, 23 Nov 2023 14:47:46 +0100
+Subject: [PATCH 1/2] Add -municode for MinGW
+
+Also add CI for MinGW
+---
+ .github/workflows/ci-mingw.yml | 97 ++++++++++++++++++++++++++++++++++
+ CMakeLists.txt                 | 13 ++++-
+ apps/shared/avifutil.h         |  4 +-
+ tests/CMakeLists.txt           |  3 ++
+ 4 files changed, 113 insertions(+), 4 deletions(-)
+ create mode 100644 .github/workflows/ci-mingw.yml
+
+diff --git a/.github/workflows/ci-mingw.yml b/.github/workflows/ci-mingw.yml
+new file mode 100644
+index 000000000..e2d0bccda
+--- /dev/null
++++ b/.github/workflows/ci-mingw.yml
+@@ -0,0 +1,97 @@
++# This is a copy of ci-unix-shared-local.yml for building shared libraries
++# with an additional build configuration (using installed deps and dav1d).
++
++name: CI MinGW
++on: [push, pull_request]
++
++permissions:
++  contents: read
++
++# Cancel the workflow if a new one is triggered from the same PR, branch, or tag, except on main.
++concurrency:
++  group: ${{ github.workflow }}-${{ github.ref }}
++  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
++
++jobs:
++  build-mingw:
++    runs-on: windows-latest
++    strategy:
++      fail-fast: false
++      matrix:
++        sys:
++          - mingw64
++          - mingw32
++          - ucrt64
++          - clang64
++
++    defaults:
++      run:
++        shell: msys2 {0}
++    steps:
++    - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
++    - uses: msys2/setup-msys2@v2
++      with:
++        msystem: ${{matrix.sys}}
++        update: true
++        install: >-
++          git
++        pacboy: >-
++          aom:p
++          cmake:p
++          cc:p
++          dav1d:p
++          libjpeg-turbo:p
++          libpng:p
++          libyuv:p
++          ninja:p
++          zlib:p
++    - name: Cache external dependencies
++      id: cache-ext
++      uses: actions/cache@88522ab9f39a2ea568f7027eddc7d8d8bc9d59c8 # v3.3.1
++      with:
++        path: ext
++        key: ${{ runner.sys }}-mingw
++    - name: Print cmake version
++      run: cmake --version
++    - name: Build GoogleTest
++      if: steps.cache-ext.outputs.cache-hit != 'true'
++      working-directory: ./ext
++      run: ./googletest.cmd
++
++    - name: Prepare libavif (cmake)
++      run: >
++        mkdir build && cd build
++
++        cmake .. -G Ninja
++        -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF
++        -DAVIF_CODEC_AOM=SYSTEM
++        -DAVIF_CODEC_AOM_DECODE=OFF -DAVIF_CODEC_AOM_ENCODE=ON
++        -DAVIF_CODEC_DAV1D=SYSTEM
++        -DAVIF_BUILD_EXAMPLES=ON -DAVIF_BUILD_APPS=ON
++        -DAVIF_BUILD_TESTS=ON -DAVIF_ENABLE_GTEST=ON -DAVIF_LOCAL_GTEST=ON
++        -DAVIF_BUILD_GDK_PIXBUF=ON -DCMAKE_INSTALL_PREFIX=./install
++    - name: Build libavif (ninja)
++      working-directory: ./build
++      run: ninja
++    - name: Run AVIF Tests
++      working-directory: ./build
++      run: ctest -j $Env:NUMBER_OF_PROCESSORS --output-on-failure
++    - name: Install AVIF
++      working-directory: ./build
++      run: ninja install
++    - name: Test installed cmake
++      working-directory: ./build
++      run: >
++        mkdir test && cd test
++
++        echo "cmake_minimum_required(VERSION 3.13)
++              project(FindPackageTest)
++              message(STATUS ${CMAKE_PREFIX_PATH})
++              find_package(libavif REQUIRED)
++              if(TARGET avif)
++                message(STATUS "\""avif found"\"")
++              else()
++                message(FATAL_ERROR "\""avif not found"\"")
++              endif()" >> CMakeLists.txt
++
++        cmake . -DCMAKE_PREFIX_PATH=../install
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index 9d28ae3..a47eec0 100644
+index 18629ae4c..cf76dfd7a 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
-@@ -793,6 +793,10 @@ if(AVIF_BUILD_APPS)
+@@ -431,11 +431,14 @@ endif()
+ # /usr/local/include.
+ set(CMAKE_FIND_FRAMEWORK LAST)
+ 
+-if(UNIX)
++if(UNIX OR (MINGW AND CMAKE_C_COMPILER_ID MATCHES "Clang"))
+     # Find out if we have threading available
+     set(THREADS_PREFER_PTHREAD_FLAG ON)
+     find_package(Threads)
+-    set(AVIF_PLATFORM_LIBRARIES ${AVIF_PLATFORM_LIBRARIES} m Threads::Threads)
++    set(AVIF_PLATFORM_LIBRARIES ${AVIF_PLATFORM_LIBRARIES} Threads::Threads)
++endif()
++if(UNIX)
++    set(AVIF_PLATFORM_LIBRARIES ${AVIF_PLATFORM_LIBRARIES} m)
+ endif()
+ 
+ set(AVIF_CODEC_DEFINITIONS)
+@@ -804,11 +807,17 @@ if(AVIF_BUILD_APPS)
+         set_target_properties(avifenc PROPERTIES LINKER_LANGUAGE "CXX")
+     endif()
+     target_link_libraries(avifenc avif_apps)
++    if(MINGW)
++        target_link_options(avifenc PRIVATE -municode)
++    endif()
+     add_executable(avifdec apps/avifdec.c)
+     if(AVIF_USE_CXX)
          set_target_properties(avifdec PROPERTIES LINKER_LANGUAGE "CXX")
      endif()
      target_link_libraries(avifdec avif_apps)
-+    if(WIN32 AND MINGW)
-+	    target_link_options(avifenc PUBLIC "SHELL:-municode")
-+	    target_link_options(avifdec PUBLIC "SHELL:-municode")
++    if(MINGW)
++        target_link_options(avifdec PRIVATE -municode)
 +    endif()
  
      if(NOT SKIP_INSTALL_APPS AND NOT SKIP_INSTALL_ALL)
          install(
+diff --git a/apps/shared/avifutil.h b/apps/shared/avifutil.h
+index b20616595..1f444414b 100644
+--- a/apps/shared/avifutil.h
++++ b/apps/shared/avifutil.h
+@@ -21,7 +21,7 @@ extern "C" {
+ #ifdef __cplusplus
+ #define INIT_ARGV()                                                                                           \
+     if (setlocale(LC_ALL, ".UTF8") == NULL) {                                                                 \
+-        fprintf(stderr, "setlocale failed\n");                                                                \
++        fprintf(stderr, "C++ setlocale failed\n");                                                            \
+         return 1;                                                                                             \
+     }                                                                                                         \
+     std::vector<char> argvAllVector(1024 * argc);                                                             \
+@@ -40,7 +40,7 @@ extern "C" {
+     char * argvAll = NULL;                                                                                    \
+     char ** argv = NULL;                                                                                      \
+     if (setlocale(LC_ALL, ".UTF8") == NULL) {                                                                 \
+-        fprintf(stderr, "setlocale failed\n");                                                                \
++        fprintf(stderr, "C setlocale failed\n");                                                              \
+         return 1;                                                                                             \
+     }                                                                                                         \
+     argvAll = (char *)malloc(1024 * argc * sizeof(*argvAll));                                                 \
+diff --git a/tests/CMakeLists.txt b/tests/CMakeLists.txt
+index d174e0536..8a04e08c6 100644
+--- a/tests/CMakeLists.txt
++++ b/tests/CMakeLists.txt
+@@ -224,6 +224,9 @@ if(AVIF_BUILD_APPS)
+     # 'are_images_equal' is used to make sure inputs/outputs are unchanged.
+     add_executable(are_images_equal gtest/are_images_equal.cc)
+     target_link_libraries(are_images_equal aviftest_helpers)
++    if(MINGW)
++        target_link_options(are_images_equal PRIVATE -municode)
++    endif()
+     add_test(NAME test_cmd COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/test_cmd.sh ${CMAKE_BINARY_DIR}
+                                    ${CMAKE_CURRENT_SOURCE_DIR}/data
+     )
+
+From 113b8c3c074210972c49495aca9afd20e2f21f6b Mon Sep 17 00:00:00 2001
+From: Vincent Rabaud <vrabaud@google.com>
+Date: Fri, 24 Nov 2023 15:15:40 +0100
+Subject: [PATCH 2/2] Fix some tests.
+
+- add cmp and convert utilities.
+- use m with gcc and pthreads with clang
+---
+ .github/workflows/ci-mingw.yml | 2 ++
+ CMakeLists.txt                 | 7 ++-----
+ 2 files changed, 4 insertions(+), 5 deletions(-)
+
+diff --git a/.github/workflows/ci-mingw.yml b/.github/workflows/ci-mingw.yml
+index e2d0bccda..65578e35f 100644
+--- a/.github/workflows/ci-mingw.yml
++++ b/.github/workflows/ci-mingw.yml
+@@ -38,8 +38,10 @@ jobs:
+         pacboy: >-
+           aom:p
+           cmake:p
++          diffutils:p
+           cc:p
+           dav1d:p
++          imagemagick:p
+           libjpeg-turbo:p
+           libpng:p
+           libyuv:p
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index cf76dfd7a..33355d71c 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -431,14 +431,11 @@ endif()
+ # /usr/local/include.
+ set(CMAKE_FIND_FRAMEWORK LAST)
+ 
+-if(UNIX OR (MINGW AND CMAKE_C_COMPILER_ID MATCHES "Clang"))
++if(UNIX OR MINGW)
+     # Find out if we have threading available
+     set(THREADS_PREFER_PTHREAD_FLAG ON)
+     find_package(Threads)
+-    set(AVIF_PLATFORM_LIBRARIES ${AVIF_PLATFORM_LIBRARIES} Threads::Threads)
+-endif()
+-if(UNIX)
+-    set(AVIF_PLATFORM_LIBRARIES ${AVIF_PLATFORM_LIBRARIES} m)
++    set(AVIF_PLATFORM_LIBRARIES ${AVIF_PLATFORM_LIBRARIES} m Threads::Threads)
+ endif()
+ 
+ set(AVIF_CODEC_DEFINITIONS)
