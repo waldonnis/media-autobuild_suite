@@ -547,12 +547,16 @@ if [[ $jpegxl = y ]] || { [[ $ffmpeg != no ]] && enabled libjxl; }; then
         extracommands=()
         log -q "git.submodule" git submodule update --init --recursive
         [[ $jpegxl = y ]] || extracommands=("-DJPEGXL_ENABLE_TOOLS=OFF")
-        do_cmakeinstall global -D{BUILD_TESTING,JPEGXL_ENABLE_{BENCHMARK,DOXYGEN,MANPAGES,OPENEXR,SKCMS,EXAMPLES}}=OFF \
+        CXXFLAGS+=" -DJXL_CMS_STATIC_DEFINE -DJXL_STATIC_DEFINE -DJXL_THREADS_STATIC_DEFINE" \
+            do_cmakeinstall global -D{BUILD_TESTING,JPEGXL_ENABLE_{BENCHMARK,DOXYGEN,MANPAGES,OPENEXR,SKCMS,EXAMPLES}}=OFF \
             -DJPEGXL_{FORCE_SYSTEM_BROTLI,STATIC}=ON "${extracommands[@]}"
         do_checkIfExist
         unset extracommands
     fi
 fi
+
+grep_and_sed 'libjxl_cms' "$LOCALDESTDIR"/lib/pkgconfig/libjxl.pc \
+    's|libjxl_cms||'
 
 if files_exist bin-video/OpenCL.dll; then
     opencldll=$LOCALDESTDIR/bin-video/OpenCL.dll
@@ -755,7 +759,7 @@ if { [[ $ffmpeg != no ]] && enabled libfdk-aac; } || [[ $fdkaac = y ]]; then
         do_autoreconf
         do_uninstall "${_check[@]}"
         CFLAGS+=" $($PKG_CONFIG --cflags fdk-aac)" \
-        LDFLAGS+=" $($PKG_CONFIG --cflags --libs fdk-aac)"
+        LDFLAGS+=" $($PKG_CONFIG --cflags --libs fdk-aac)" \
             do_separate_confmakeinstall audio
         do_checkIfExist
     fi
@@ -1182,6 +1186,8 @@ if [[ $libavif = y ]] && {
         pc_exists "aom" || pc_exists "dav1d" || pc_exists "rav1e"
     } &&
     do_vcs "$SOURCE_REPO_LIBAVIF"; then
+    curl -Ls "https://github.com/AOMediaCodec/libavif/commit/edf3dab0111ef749e84b344dac55c2f5ab4731a5.patch" |
+        patch -fR -p1 --batch >/dev/null 2>&1
     # chop off any .lib suffixes that is attached to a library name
     grep_and_sed '\.lib' CMakeLists.txt 's|(\w)\.lib\b|\1|g'
     do_uninstall "${_check[@]}"
@@ -2340,10 +2346,6 @@ if [[ $mplayer = y ]] && check_mplayer_updates; then
     [[ -d ffmpeg/.git ]] && {
         git -C ffmpeg fetch -q origin
         git -C ffmpeg checkout -qf --no-track -B master origin/HEAD
-        (
-            cd ffmpeg || return
-            do_patch "https://patchwork.ffmpeg.org/series/8130/mbox/" am
-        )
     }
 
     grep_or_sed windows libmpcodecs/ad_spdif.c '/#include "mp_msg.h/ a\#include <windows.h>'
