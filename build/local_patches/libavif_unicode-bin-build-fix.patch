@@ -1,7 +1,7 @@
 From dfe9790669aac3da5154bae0f34cc95bf9dbbb79 Mon Sep 17 00:00:00 2001
 From: Vincent Rabaud <vrabaud@google.com>
 Date: Thu, 23 Nov 2023 14:47:46 +0100
-Subject: [PATCH 1/2] Add -municode for MinGW
+Subject: [PATCH 1/4] Add -municode for MinGW
 
 Also add CI for MinGW
 ---
@@ -191,20 +191,20 @@ index d174e0536..8a04e08c6 100644
                                     ${CMAKE_CURRENT_SOURCE_DIR}/data
      )
 
-From 113b8c3c074210972c49495aca9afd20e2f21f6b Mon Sep 17 00:00:00 2001
+From 8fd85dd99ff7a22140b1327527810f574cb4edd8 Mon Sep 17 00:00:00 2001
 From: Vincent Rabaud <vrabaud@google.com>
 Date: Fri, 24 Nov 2023 15:15:40 +0100
-Subject: [PATCH 2/2] Fix some tests.
+Subject: [PATCH 2/4] Fix some tests.
 
 - add cmp and convert utilities.
 - use m with gcc and pthreads with clang
 ---
- .github/workflows/ci-mingw.yml | 2 ++
- CMakeLists.txt                 | 7 ++-----
- 2 files changed, 4 insertions(+), 5 deletions(-)
+ .github/workflows/ci-mingw.yml | 21 ++-------------------
+ CMakeLists.txt                 |  7 ++-----
+ 2 files changed, 4 insertions(+), 24 deletions(-)
 
 diff --git a/.github/workflows/ci-mingw.yml b/.github/workflows/ci-mingw.yml
-index e2d0bccda..65578e35f 100644
+index e2d0bccda..5f2765fce 100644
 --- a/.github/workflows/ci-mingw.yml
 +++ b/.github/workflows/ci-mingw.yml
 @@ -38,8 +38,10 @@ jobs:
@@ -218,6 +218,29 @@ index e2d0bccda..65578e35f 100644
            libjpeg-turbo:p
            libpng:p
            libyuv:p
+@@ -76,22 +78,3 @@ jobs:
+     - name: Run AVIF Tests
+       working-directory: ./build
+       run: ctest -j $Env:NUMBER_OF_PROCESSORS --output-on-failure
+-    - name: Install AVIF
+-      working-directory: ./build
+-      run: ninja install
+-    - name: Test installed cmake
+-      working-directory: ./build
+-      run: >
+-        mkdir test && cd test
+-
+-        echo "cmake_minimum_required(VERSION 3.13)
+-              project(FindPackageTest)
+-              message(STATUS ${CMAKE_PREFIX_PATH})
+-              find_package(libavif REQUIRED)
+-              if(TARGET avif)
+-                message(STATUS "\""avif found"\"")
+-              else()
+-                message(FATAL_ERROR "\""avif not found"\"")
+-              endif()" >> CMakeLists.txt
+-
+-        cmake . -DCMAKE_PREFIX_PATH=../install
 diff --git a/CMakeLists.txt b/CMakeLists.txt
 index cf76dfd7a..33355d71c 100644
 --- a/CMakeLists.txt
@@ -239,3 +262,188 @@ index cf76dfd7a..33355d71c 100644
  endif()
  
  set(AVIF_CODEC_DEFINITIONS)
+
+From d000f3c22b938106934caa3fae66a8970e47b689 Mon Sep 17 00:00:00 2001
+From: Vincent Rabaud <vrabaud@google.com>
+Date: Fri, 24 Nov 2023 22:10:17 +0100
+Subject: [PATCH 3/4] Get all tests to pass
+
+---
+ .github/workflows/ci-mingw.yml |  5 ++---
+ CMakeLists.txt                 |  6 ++----
+ apps/shared/avifutil.h         |  6 +++---
+ tests/CMakeLists.txt           | 12 ++++++++----
+ tests/test_cmd.sh              | 10 ++++++----
+ 5 files changed, 21 insertions(+), 18 deletions(-)
+
+diff --git a/.github/workflows/ci-mingw.yml b/.github/workflows/ci-mingw.yml
+index 5f2765fce..db7730af2 100644
+--- a/.github/workflows/ci-mingw.yml
++++ b/.github/workflows/ci-mingw.yml
+@@ -20,7 +20,6 @@ jobs:
+       matrix:
+         sys:
+           - mingw64
+-          - mingw32
+           - ucrt64
+           - clang64
+ 
+@@ -31,7 +30,7 @@ jobs:
+     - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+     - uses: msys2/setup-msys2@v2
+       with:
+-        msystem: ${{matrix.sys}}
++        msystem: ${{ matrix.sys }}
+         update: true
+         install: >-
+           git
+@@ -52,7 +51,7 @@ jobs:
+       uses: actions/cache@88522ab9f39a2ea568f7027eddc7d8d8bc9d59c8 # v3.3.1
+       with:
+         path: ext
+-        key: ${{ runner.sys }}-mingw
++        key: ${{ matrix.sys }}-mingw-${{ hashFiles('ext/*.cmd') }}
+     - name: Print cmake version
+       run: cmake --version
+     - name: Build GoogleTest
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 33355d71c..6716de696 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -804,15 +804,13 @@ if(AVIF_BUILD_APPS)
+         set_target_properties(avifenc PROPERTIES LINKER_LANGUAGE "CXX")
+     endif()
+     target_link_libraries(avifenc avif_apps)
+-    if(MINGW)
+-        target_link_options(avifenc PRIVATE -municode)
+-    endif()
+     add_executable(avifdec apps/avifdec.c)
+     if(AVIF_USE_CXX)
+         set_target_properties(avifdec PROPERTIES LINKER_LANGUAGE "CXX")
+     endif()
+     target_link_libraries(avifdec avif_apps)
+-    if(MINGW)
++    if(MINGW AND NOT "$ENV{MSYSTEM}" MATCHES "(MINGW32|MINGW64)")
++        target_link_options(avifenc PRIVATE -municode)
+         target_link_options(avifdec PRIVATE -municode)
+     endif()
+ 
+diff --git a/apps/shared/avifutil.h b/apps/shared/avifutil.h
+index 1f444414b..d3aac382d 100644
+--- a/apps/shared/avifutil.h
++++ b/apps/shared/avifutil.h
+@@ -11,13 +11,13 @@ extern "C" {
+ #endif
+ 
+ // MAIN(), INIT_ARGV(), FREE_ARGV() for UTF8-aware command line parsing.
+-#if defined(_WIN32)
++#if defined(_WIN32) && defined(_UCRT)
+ #define MAIN() int wmain(int argc, wchar_t * wargv[])
+ #else
+ #define MAIN() int main(int argc, char * argv[])
+ #endif
+ 
+-#if defined(_WIN32)
++#if defined(_WIN32) && defined(_UCRT)
+ #ifdef __cplusplus
+ #define INIT_ARGV()                                                                                           \
+     if (setlocale(LC_ALL, ".UTF8") == NULL) {                                                                 \
+@@ -62,7 +62,7 @@ extern "C" {
+ #else
+ #define INIT_ARGV()
+ #endif
+-#if defined(_WIN32) && !defined(__cplusplus)
++#if defined(_WIN32) && !defined(__cplusplus) && defined(_UCRT)
+ #define FREE_ARGV() \
+     free(argv);     \
+     free(argvAll);
+diff --git a/tests/CMakeLists.txt b/tests/CMakeLists.txt
+index 8a04e08c6..4067e88f0 100644
+--- a/tests/CMakeLists.txt
++++ b/tests/CMakeLists.txt
+@@ -220,16 +220,20 @@ endif()
+ # Bash tests
+ 
+ if(AVIF_BUILD_APPS)
++    add_test(NAME test_cmd COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/test_cmd.sh ${CMAKE_BINARY_DIR}
++                                   ${CMAKE_CURRENT_SOURCE_DIR}/data
++    )
+     # When building apps, test the avifenc/avifdec.
+     # 'are_images_equal' is used to make sure inputs/outputs are unchanged.
+     add_executable(are_images_equal gtest/are_images_equal.cc)
+     target_link_libraries(are_images_equal aviftest_helpers)
+     if(MINGW)
+-        target_link_options(are_images_equal PRIVATE -municode)
++        if("$ENV{MSYSTEM}" MATCHES "(MINGW32|MINGW64)")
++            set_tests_properties(test_cmd PROPERTIES ENVIRONMENT "AVIF_TEST_NO_UTF8=1")
++        else()
++            target_link_options(are_images_equal PRIVATE -municode)
++        endif()
+     endif()
+-    add_test(NAME test_cmd COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/test_cmd.sh ${CMAKE_BINARY_DIR}
+-                                   ${CMAKE_CURRENT_SOURCE_DIR}/data
+-    )
+     add_test(NAME test_cmd_animation COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/test_cmd_animation.sh ${CMAKE_BINARY_DIR}
+                                              ${CMAKE_CURRENT_SOURCE_DIR}/data
+     )
+diff --git a/tests/test_cmd.sh b/tests/test_cmd.sh
+index d823c8c09..007a36a00 100755
+--- a/tests/test_cmd.sh
++++ b/tests/test_cmd.sh
+@@ -71,10 +71,12 @@ pushd ${TMP_DIR}
+   "${AVIFENC}" -s 8 "${INPUT_Y4M}" -o "${ENCODED_FILE}"
+   "${AVIFDEC}" "${ENCODED_FILE}" "${DECODED_FILE}"
+   "${ARE_IMAGES_EQUAL}" "${INPUT_Y4M}" "${DECODED_FILE}" 0 && exit 1
+-  cp ${INPUT_Y4M} ${INPUT_UTF8_Y4M}
+-  "${AVIFENC}" -s 8 "${INPUT_UTF8_Y4M}" -o "${ENCODED_UTF8_FILE}"
+-  "${AVIFDEC}" "${ENCODED_UTF8_FILE}" "${DECODED_UTF8_FILE}"
+-  "${ARE_IMAGES_EQUAL}" "${INPUT_UTF8_Y4M}" "${DECODED_UTF8_FILE}" 0 && exit 1
++  if [[ -z "${AVIF_TEST_NO_UTF8}" ]]; then
++    cp ${INPUT_Y4M} ${INPUT_UTF8_Y4M}
++    "${AVIFENC}" -s 8 "${INPUT_UTF8_Y4M}" -o "${ENCODED_UTF8_FILE}"
++    "${AVIFDEC}" "${ENCODED_UTF8_FILE}" "${DECODED_UTF8_FILE}"
++    "${ARE_IMAGES_EQUAL}" "${INPUT_UTF8_Y4M}" "${DECODED_UTF8_FILE}" 0 && exit 1
++  fi
+ 
+   # Argument parsing test with filenames starting with a dash.
+   echo "Testing arguments"
+
+From 9fb2510880ab98abcdd48f0def5bbb49785d86e0 Mon Sep 17 00:00:00 2001
+From: Vincent Rabaud <vrabaud@google.com>
+Date: Mon, 27 Nov 2023 22:37:33 +0100
+Subject: [PATCH 4/4] Fix nit
+
+---
+ tests/CMakeLists.txt | 3 ++-
+ tests/test_cmd.sh    | 2 +-
+ 2 files changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/tests/CMakeLists.txt b/tests/CMakeLists.txt
+index 4067e88f0..58ba52f05 100644
+--- a/tests/CMakeLists.txt
++++ b/tests/CMakeLists.txt
+@@ -227,9 +227,10 @@ if(AVIF_BUILD_APPS)
+     # 'are_images_equal' is used to make sure inputs/outputs are unchanged.
+     add_executable(are_images_equal gtest/are_images_equal.cc)
+     target_link_libraries(are_images_equal aviftest_helpers)
++    set_tests_properties(test_cmd PROPERTIES ENVIRONMENT "AVIF_TEST_UTF8=1")
+     if(MINGW)
+         if("$ENV{MSYSTEM}" MATCHES "(MINGW32|MINGW64)")
+-            set_tests_properties(test_cmd PROPERTIES ENVIRONMENT "AVIF_TEST_NO_UTF8=1")
++            set_tests_properties(test_cmd PROPERTIES ENVIRONMENT "AVIF_TEST_UTF8=0")
+         else()
+             target_link_options(are_images_equal PRIVATE -municode)
+         endif()
+diff --git a/tests/test_cmd.sh b/tests/test_cmd.sh
+index 007a36a00..83ef257eb 100755
+--- a/tests/test_cmd.sh
++++ b/tests/test_cmd.sh
+@@ -71,7 +71,7 @@ pushd ${TMP_DIR}
+   "${AVIFENC}" -s 8 "${INPUT_Y4M}" -o "${ENCODED_FILE}"
+   "${AVIFDEC}" "${ENCODED_FILE}" "${DECODED_FILE}"
+   "${ARE_IMAGES_EQUAL}" "${INPUT_Y4M}" "${DECODED_FILE}" 0 && exit 1
+-  if [[ -z "${AVIF_TEST_NO_UTF8}" ]]; then
++  if [[ "${AVIF_TEST_UTF8}" == "1" ]]; then
+     cp ${INPUT_Y4M} ${INPUT_UTF8_Y4M}
+     "${AVIFENC}" -s 8 "${INPUT_UTF8_Y4M}" -o "${ENCODED_UTF8_FILE}"
+     "${AVIFDEC}" "${ENCODED_UTF8_FILE}" "${DECODED_UTF8_FILE}"
