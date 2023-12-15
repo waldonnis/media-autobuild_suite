@@ -538,10 +538,11 @@ if [[ $jpegxl = y ]] || { [[ $ffmpeg != no ]] && enabled libjxl; }; then
     fi
 
     _deps=(libgflags.a)
-    _check=(libjxl{{,_dec,_threads}.a,.pc} jxl/decode.h)
+    _check=(libjxl{{,_threads}.a,.pc} jxl/decode.h)
     [[ $jpegxl = y ]] && _check+=(bin-global/{{c,d}jxl,cjpegli,jxlinfo}.exe)
     if do_vcs "$SOURCE_REPO_LIBJXL"; then
         do_patch "https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/libjxl/0001-brotli-add-ldflags.patch" am
+        do_patch "https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/libjxl/0002-jxl_cms.cmake-Add-lcms2-to-list-of-requires.patch" am
         do_uninstall "${_check[@]}" include/jxl
         do_pacman_install lcms2 asciidoc
         extracommands=()
@@ -554,9 +555,6 @@ if [[ $jpegxl = y ]] || { [[ $ffmpeg != no ]] && enabled libjxl; }; then
         unset extracommands
     fi
 fi
-
-grep_and_sed 'libjxl_cms' "$LOCALDESTDIR"/lib/pkgconfig/libjxl.pc \
-    's|libjxl_cms||'
 
 if files_exist bin-video/OpenCL.dll; then
     opencldll=$LOCALDESTDIR/bin-video/OpenCL.dll
@@ -2006,13 +2004,13 @@ if { { [[ $mpv != n ]] && ! mpv_disabled libplacebo; } ||
     do_checkIfExist
 fi
 
-_check=(lib{glslang,OSDependent,HLSL,OGLCompiler,SPVRemapper}.a
+_check=(lib{glslang,OSDependent,SPVRemapper}.a
         libSPIRV{,-Tools{,-opt,-link,-reduce}}.a glslang/SPIRV/GlslangToSpv.h)
 if { { [[ $mpv != n ]]  && ! mpv_disabled libplacebo; } ||
      { [[ $ffmpeg != no ]] && enabled_any libplacebo libglslang; } } &&
     do_vcs "$SOURCE_REPO_GLSLANG"; then
     do_pacman_install python
-    do_uninstall "${_check[@]}"
+    do_uninstall libHLSL.a "${_check[@]}"
     log dependencies /usr/bin/python ./update_glslang_sources.py
     # Python3_EXECUTABLE set to prevent CMake from finding the newer (but specific to the msys subsystem) python 3.11
     # (current mingw-w64 versions are 3.10)
@@ -2025,6 +2023,7 @@ _check=(shaderc/shaderc.h libshaderc_combined.a)
         do_vcs "$SOURCE_REPO_SHADERC"; then
         do_patch "https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/shaderc/0001-third_party-set-INSTALL-variables-as-cache.patch" am
         do_patch "https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/shaderc/0002-shaderc_util-add-install.patch" am
+        do_patch "https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/shaderc/0003-cmake-correct-PYTHON-Python.patch" am
         do_uninstall "${_check[@]}" include/shaderc include/libshaderc_util
 
         log dependencies /usr/bin/python ./utils/git-sync-deps
@@ -2175,6 +2174,8 @@ if [[ $ffmpeg != no ]]; then
             # remove redundant -L and -l flags from extralibs
             do_patch "https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/ffmpeg/0001-configure-deduplicate-linking-flags.patch" am
         fi
+
+        do_patch "https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/ffmpeg/0001-glslang-Remove-HLSL-and-OGLCompiler-libraries.patch" am
 
         _patches=$(git rev-list origin/master.. --count)
         [[ $_patches -gt 0 ]] &&
@@ -2428,7 +2429,7 @@ if [[ $mpv != n ]] && pc_exists libavcodec libavformat libswscale libavfilter; t
             sed -i "s;-lreadline;$($PKG_CONFIG --libs readline);g" Makefile
         fi
         extra_script pre make
-        log "make" env -i PATH="$PATH" TEMP="${TEMP:-/tmp}" CPATH="${CPATH:-}" "$(command -v make)" \
+        TEMP="${TEMP:-/tmp}" CPATH="${CPATH:-}" log "make" "$(command -v make)" \
             "${mujs_targets[@]}" prefix="$LOCALDESTDIR" bindir="$LOCALDESTDIR/bin-global"
         extra_script post make
         extra_script pre install
@@ -2449,6 +2450,7 @@ if [[ $mpv != n ]] && pc_exists libavcodec libavformat libswscale libavfilter; t
     mpv_enabled libmpv-static && _check+=(libmpv.a)
     _deps=(lib{ass,avcodec,vapoursynth,shaderc_combined,spirv-cross,placebo}.a "$MINGW_PREFIX"/lib/libuchardet.a)
     if do_vcs "$SOURCE_REPO_MPV"; then
+        do_patch "https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/mpv/0001-ao_wasapi_utils-include-mmreg.h-for-WAVE_FORMAT.patch" am
         hide_conflicting_libs
         create_ab_pkgconfig
 
