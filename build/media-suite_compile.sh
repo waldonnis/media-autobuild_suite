@@ -542,7 +542,6 @@ if [[ $jpegxl = y ]] || { [[ $ffmpeg != no ]] && enabled libjxl; }; then
     [[ $jpegxl = y ]] && _check+=(bin-global/{{c,d}jxl,cjpegli,jxlinfo}.exe)
     if do_vcs "$SOURCE_REPO_LIBJXL"; then
         do_patch "https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/libjxl/0001-brotli-add-ldflags.patch" am
-        do_patch "https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/libjxl/0002-jxl_cms.cmake-Add-lcms2-to-list-of-requires.patch" am
         do_uninstall "${_check[@]}" include/jxl
         do_pacman_install lcms2 asciidoc
         extracommands=()
@@ -2009,6 +2008,7 @@ _check=(lib{glslang,OSDependent,SPVRemapper}.a
 if { { [[ $mpv != n ]]  && ! mpv_disabled libplacebo; } ||
      { [[ $ffmpeg != no ]] && enabled_any libplacebo libglslang; } } &&
     do_vcs "$SOURCE_REPO_GLSLANG"; then
+    do_patch "https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/glslang/0001-Initialize-Include-array-to-fix-compilation-issue.patch" am
     do_pacman_install python
     do_uninstall libHLSL.a "${_check[@]}"
     log dependencies /usr/bin/python ./update_glslang_sources.py
