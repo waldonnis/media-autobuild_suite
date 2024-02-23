@@ -800,6 +800,7 @@ fi
 _check=(libopus.{,l}a opus.pc opus/opus.h)
 if enabled libopus && do_vcs "$SOURCE_REPO_OPUS"; then
     do_pacman_remove opus
+    do_pacman_install wget # autogen calls wget, but msys/wget seems to fail for some people, while the mingw64 one works
     do_uninstall include/opus "${_check[@]}"
     do_autogen
     do_separate_confmakeinstall --disable-{stack-protector,doc,extra-programs}
@@ -1185,7 +1186,7 @@ if [[ $libavif = y ]] && {
     # chop off any .lib suffixes that is attached to a library name
     grep_and_sed '\.lib' CMakeLists.txt 's|(\w)\.lib\b|\1|g'
     do_uninstall "${_check[@]}"
-    do_pacman_install libjpeg-turbo
+    do_pacman_install libjpeg-turbo libyuv
     extracommands=()
     pc_exists "dav1d" && extracommands+=("-DAVIF_CODEC_DAV1D=ON")
     pc_exists "rav1e" && extracommands+=("-DAVIF_CODEC_RAV1E=ON")
