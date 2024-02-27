@@ -443,7 +443,6 @@ esac
 [[ $standalone = y || $curl != n ]] && _check+=(bin-global/curl.exe)
 if [[ $mediainfo = y || $bmx = y || $curl != n || $cyanrip = y ]] &&
     do_vcs "https://github.com/curl/curl.git"; then
-    do_patch "https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/curl/0001-configure-use-pkg-config-for-psl.patch" am
     do_pacman_install nghttp2
 
     do_uninstall include/curl bin-global/curl-config "${_check[@]}"
@@ -2145,12 +2144,6 @@ if [[ $ffmpeg != no ]]; then
     if do_vcs "$ffmpegPath"; then
         do_changeFFmpegConfig "$license"
         [[ -f ffmpeg_extra.sh ]] && source ffmpeg_extra.sh
-
-        # lavc/cbs_av1: fill in ref_frame_sign_bias
-        do_patch "https://patchwork.ffmpeg.org/project/ffmpeg/patch/Npbk3Pz--3-9@lynne.ee/raw/" am
-        # lavc/vulkan_av1: port to the new stable API
-        do_patch "https://patchwork.ffmpeg.org/project/ffmpeg/patch/NpbkH8f--3-9@lynne.ee/raw/" am
-
         if enabled libsvthevc; then
             do_patch "https://raw.githubusercontent.com/OpenVisualCloud/SVT-HEVC/master/ffmpeg_plugin/master-0001-lavc-svt_hevc-add-libsvt-hevc-encoder-wrapper.patch" am ||
                 do_removeOption --enable-libsvthevc
@@ -2182,8 +2175,6 @@ if [[ $ffmpeg != no ]]; then
             # remove redundant -L and -l flags from extralibs
             do_patch "https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/ffmpeg/0001-configure-deduplicate-linking-flags.patch" am
         fi
-
-        do_patch "https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/ffmpeg/0001-glslang-Remove-HLSL-and-OGLCompiler-libraries.patch" am
 
         # Fix for libjxl changes that removes including version.h from decode.h
         grep_or_sed jxl/version.h libavcodec/libjxl.h 's;#include <jxl/decode.h>;#include <jxl/version.h>\n&;'
