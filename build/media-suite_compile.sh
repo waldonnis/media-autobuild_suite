@@ -167,9 +167,9 @@ set_title "compiling global tools"
 do_simple_print -p '\n\t'"${orange}Starting $bits compilation of global tools${reset}"
 
 if [[ $packing = y &&
-    ! "$(/opt/bin/upx -V 2> /dev/null | head -1)" = "upx 3.96" ]] &&
-    do_wget -h 014912ea363e2d491587534c1e7efd5bc516520d8f2cdb76bb0aaf915c5db961 \
-        "https://github.com/upx/upx/releases/download/v3.96/upx-3.96-win32.zip"; then
+    ! "$(/opt/bin/upx -V 2> /dev/null | head -1)" = "upx 4.2.2" ]] &&
+    do_wget -h 141e7cd8d009b827590662b482f1ae2f1dda17cf446a5651078235efb1429c59 \
+        "https://github.com/upx/upx/releases/download/v4.2.2/upx-4.2.2-win32.zip"; then
     do_install upx.exe /opt/bin/upx.exe
 fi
 
@@ -495,12 +495,20 @@ if { { [[ $ffmpeg != no || $standalone = y ]] && enabled libtesseract; } ||
     fi
     _deps=(libglut.a)
     _check=(libtiff{.a,-4.pc})
+    [[ $standalone = y ]] && _check+=(bin-global/tiff{cp,dump,info,set,split}.exe)
     if do_vcs "$SOURCE_REPO_LIBTIFF"; then
         do_pacman_install libjpeg-turbo xz zlib zstd libdeflate
-        do_uninstall "${_check[@]}"
+        do_uninstall lib/cmake/tiff "${_check[@]}"
+        extracommands=("-Dtiff-tests=OFF" "-Dtiff-docs=OFF")
+        if [[ $standalone = y ]]; then
+            extracommands+=("-Dtiff-tools=ON")
+        else
+            extracommands+=("-Dtiff-tools=OFF")
+        fi
         grep_or_sed 'Requires.private' libtiff-4.pc.in \
             '/Libs:/ a\Requires.private: libjpeg liblzma zlib libzstd glut'
-        CFLAGS+=" -DFREEGLUT_STATIC" do_cmakeinstall global -D{webp,jbig,UNIX,lerc}=OFF
+        CFLAGS+=" -DFREEGLUT_STATIC" \
+            do_cmakeinstall global -D{webp,jbig,lerc}=OFF "${extracommands[@]}"
         do_checkIfExist
     fi
 fi
