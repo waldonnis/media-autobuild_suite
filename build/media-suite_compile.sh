@@ -1449,7 +1449,8 @@ fi
 _check=(libvidstab.a vidstab.pc)
 if [[ $ffmpeg != no ]] && enabled libvidstab &&
     do_vcs "$SOURCE_REPO_VIDSTAB" vidstab; then
-    do_pacman_install openmp
+    do_pacman_remove openmp
+    do_pacman_install omp
     do_uninstall include/vid.stab "${_check[@]}"
     do_cmakeinstall
     do_checkIfExist
@@ -1936,6 +1937,7 @@ _check=(bin-video/vvenc{,FF}app.exe
     lib/cmake/vvenc/vvencConfig.cmake)
 if [[ $bits = 64bit && $vvenc = y ]] &&
     do_vcs "$SOURCE_REPO_LIBVVENC"; then
+    do_patch "https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/vvenc/0001-InterSearch-use-vector-to-replace-VLA.patch" am
     do_uninstall include/vvenc lib/cmake/vvenc "${_check[@]}"
     do_cmakeinstall video -DVVENC_ENABLE_LINK_TIME_OPT=ON -DVVENC_INSTALL_FULLFEATURE_APP=ON \
         -DVVENC_OPT_TARGET_ARCH=znver3
