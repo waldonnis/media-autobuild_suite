@@ -442,7 +442,7 @@ mbedtls) _deps=("$MINGW_PREFIX/lib/libmbedtls.a") ;;
 esac
 [[ $standalone = y || $curl != n ]] && _check+=(bin-global/curl.exe)
 if [[ $mediainfo = y || $bmx = y || $curl != n || $cyanrip = y ]] &&
-    do_vcs "https://github.com/curl/curl.git"; then
+    do_vcs "$SOURCE_REPO_CURL"; then
     do_pacman_install nghttp2
 
     do_uninstall include/curl bin-global/curl-config "${_check[@]}"
@@ -2042,7 +2042,6 @@ if { { [[ $mpv != n ]]  && ! mpv_disabled libplacebo; } ||
     do_vcs "$SOURCE_REPO_SHADERC"; then
     do_patch "https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/shaderc/0001-third_party-set-INSTALL-variables-as-cache.patch" am
     do_patch "https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/shaderc/0002-shaderc_util-add-install.patch" am
-    do_patch "https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/shaderc/0003-cmake-correct-PYTHON-Python.patch" am
     do_uninstall "${_check[@]}" include/shaderc include/libshaderc_util
 
     log dependencies /usr/bin/python ./utils/git-sync-deps
@@ -2050,7 +2049,7 @@ if { { [[ $mpv != n ]]  && ! mpv_disabled libplacebo; } ||
     # fix python indentation errors from non-existant code review
     grep -ZRlP --include="*.py" '\t' third_party/spirv-tools/ | xargs -r -0 -n1 sed -i 's;\t;    ;g'
 
-    do_cmakeinstall -GNinja -DSHADERC_SKIP_{TESTS,EXAMPLES}=ON -DSHADERC_ENABLE_WERROR_COMPILE=OFF -DSKIP_{GLSLANG,SPIRV_TOOLS,GOOGLETEST}_INSTALL=ON -DSPIRV_HEADERS_SKIP_{INSTALL,EXAMPLES}=ON
+    do_cmakeinstall -GNinja -DSHADERC_SKIP_{TESTS,EXAMPLES}=ON -DSHADERC_ENABLE_WERROR_COMPILE=OFF -DSKIP_{GLSLANG,GOOGLETEST}_INSTALL=ON -DSPIRV_HEADERS_SKIP_{INSTALL,EXAMPLES}=ON
     do_checkIfExist
     unset add_third_party
 fi
@@ -2479,6 +2478,8 @@ if [[ $mpv != n ]] && pc_exists libavcodec libavformat libswscale libavfilter; t
     mpv_enabled libmpv-static && _check+=(libmpv.a)
     _deps=(lib{ass,avcodec,vapoursynth,shaderc_combined,spirv-cross,placebo}.a "$MINGW_PREFIX"/lib/libuchardet.a)
     if do_vcs "$SOURCE_REPO_MPV"; then
+        do_patch "https://github.com/mpv-player/mpv/commit/78447c4b91634aa91dcace1cc6a9805fb93b9252.patch" am
+        do_patch "https://github.com/mpv-player/mpv/commit/414ddbd628724df3afc1e15f5e415dbb2c76a0b5.patch" am
         do_patch "https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/mpv/0001-ao_wasapi_utils-include-mmreg.h-for-WAVE_FORMAT.patch" am
         hide_conflicting_libs
         create_ab_pkgconfig
