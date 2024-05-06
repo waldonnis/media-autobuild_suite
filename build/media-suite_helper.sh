@@ -1399,7 +1399,7 @@ do_mesoninstall() {
 }
 
 do_rust() {
-    log "rust.update" "$RUSTUP_HOME/bin/cargo.exe" update
+    log "rust.update" cargo update
     # use this array to pass additional parameters to cargo
     local rust_extras=()
     extra_script pre rust
@@ -1407,7 +1407,7 @@ do_rust() {
         return
     PKG_CONFIG_ALL_STATIC=true \
         CC="ccache clang" \
-        log "rust.build" "$RUSTUP_HOME/bin/cargo.exe" build \
+        log "rust.build" cargo build \
         --target="$CARCH"-pc-windows-gnu \
         --jobs="$cpuCount" "${@:---release}" "${rust_extras[@]}"
     extra_script post rust
@@ -1415,7 +1415,7 @@ do_rust() {
 }
 
 do_rustinstall() {
-    log "rust.update" "$RUSTUP_HOME/bin/cargo.exe" update
+    log "rust.update" cargo update
     # use this array to pass additional parameters to cargo
     local rust_extras=()
     extra_script pre rust
@@ -1424,7 +1424,7 @@ do_rustinstall() {
     PKG_CONFIG_ALL_STATIC=true \
         CC="ccache clang" \
         PKG_CONFIG="$LOCALDESTDIR/bin/ab-pkg-config" \
-        log "rust.install" "$RUSTUP_HOME/bin/cargo.exe" install \
+        log "rust.install" cargo install \
         --target="$CARCH"-pc-windows-gnu \
         --jobs="$cpuCount" "${@:---path=.}" "${rust_extras[@]}"
     extra_script post rust
@@ -1432,7 +1432,7 @@ do_rustinstall() {
 }
 
 do_rustcinstall() {
-    log "rust.update" "$RUSTUP_HOME/bin/cargo.exe" update
+    log "rust.update" cargo update
     # use this array to pass additional parameters to cargo
     local rust_extras=()
     extra_script pre rust
@@ -1441,7 +1441,7 @@ do_rustcinstall() {
     PKG_CONFIG_ALL_STATIC=true \
         CC="ccache clang" \
         PKG_CONFIG="$LOCALDESTDIR/bin/ab-pkg-config" \
-        log "rust.cinstall" "$RUSTUP_HOME/bin/cargo.exe" cinstall \
+        log "rust.cinstall" cargo cinstall \
         --target="$CARCH"-pc-windows-gnu \
         --jobs="$cpuCount" --prefix="$LOCALDESTDIR" "$@" "${rust_extras[@]}"
     extra_script post rust
@@ -1669,7 +1669,7 @@ do_hide_pacman_sharedlibs() {
 do_hide_all_sharedlibs() {
     local dryrun="${dry:-n}"
     local files
-    files="$(find /mingw{32,64}/lib /mingw{32/i686,64/x86_64}-w64-mingw32/lib -name "*.dll.a" 2> /dev/null)"
+    files="$(find /{mingw,clang}{32,64}/lib /{mingw,clang}{32/i686,64/x86_64}-w64-mingw32/lib -name "*.dll.a" 2> /dev/null)"
     local tomove=()
     for file in $files; do
         [[ -f ${file%*.dll.a}.a ]] && tomove+=("$file")
@@ -1686,7 +1686,7 @@ do_hide_all_sharedlibs() {
 do_unhide_all_sharedlibs() {
     local dryrun="${dry:-n}"
     local files
-    files="$(find /mingw{32,64}/lib /mingw{32/i686,64/x86_64}-w64-mingw32/lib -name "*.dll.a.dyn" 2> /dev/null)"
+    files="$(find /{mingw,clang}{32,64}/lib /{mingw,clang}{32/i686,64/x86_64}-w64-mingw32/lib -name "*.dll.a" 2> /dev/null)"
     local tomove=()
     local todelete=()
     for file in $files; do
@@ -1705,85 +1705,104 @@ do_unhide_all_sharedlibs() {
     fi
 }
 
-do_pacman_install() {
-    local pkg msyspackage=false pkgs
+do_pacman_resolve_pkgs() (
+    : "${prefix=$MINGW_PACKAGE_PREFIX-}"
+    pacsift --exact --sync --any "${@/#/--provides=$prefix}" "${@/#/--name=$prefix}" 2>&1 | sed "s|^.*/$prefix||"
+)
+
+is_pkg_installed() (
+    : "${prefix=$MINGW_PACKAGE_PREFIX-}"
+    # checks if a package is installed/provided by a package that is installed
+    # example is omp, which is purely a provided packge, so that fails with pacman -Qe
+    pacsift --exact --local --any --exists --provides="$prefix$1" --name="$prefix$1" > /dev/null 2>&1
+)
+
+do_pacman_install() (
+    ret=true
+    prefix=$MINGW_PACKAGE_PREFIX-
+    file=/etc/pac-mingw-extra.pk
+    pkgs=()
     while true; do
         case "$1" in
-        -m) msyspackage=true && shift ;;
+        -m)
+            prefix=
+            file=/etc/pac-msys-extra.pk
+            shift
+            ;;
         *) break ;;
         esac
     done
     for pkg; do
-        if ! $msyspackage && [[ $pkg != "${MINGW_PACKAGE_PREFIX}-"* ]]; then
-            pkgs="${pkgs:+$pkgs }${MINGW_PACKAGE_PREFIX}-${pkg}"
-        else
-            pkgs="${pkgs:+$pkgs }${pkg}"
-        fi
-    done
-
-    for pkg in $pkgs; do
-        # checks if a package is installed/provided by a package that is installed
-        # example is omp, which is purely a provided packge, so that fails with pacman -Qe
-        pacsift --local --provides="$pkg" | head -c1 | grep -qE . > /dev/null 2>&1 && continue
-        do_simple_print -n "Installing ${pkg#$MINGW_PACKAGE_PREFIX-}... "
-        if pacman -S --overwrite "/usr/*" --overwrite "/mingw64/*" --overwrite "/mingw32/*" --noconfirm --ask=20 --needed "$pkg" > /dev/null 2>&1; then
-            pacsift --local --provides="$pkg" | sed 's;local/;;' | pacman -D --asexplicit - > /dev/null 2>&1
-            if $msyspackage; then
-                /usr/bin/grep -q "^${pkg}$" /etc/pac-msys-extra.pk > /dev/null 2>&1 ||
-                    echo "${pkg}" >> /etc/pac-msys-extra.pk
-            else
-                /usr/bin/grep -q "^${pkg#$MINGW_PACKAGE_PREFIX-}$" /etc/pac-mingw-extra.pk > /dev/null 2>&1 ||
-                    echo "${pkg#$MINGW_PACKAGE_PREFIX-}" >> /etc/pac-mingw-extra.pk
+        for line in $(do_pacman_resolve_pkgs "$pkg"); do
+            if ! is_pkg_installed "$line"; then
+                pkgs+=("$line")
             fi
+        done
+    done
+
+    for pkg in "${pkgs[@]}"; do
+        do_simple_print -n "Installing $pkg... "
+        if pacman -S \
+            --noconfirm --ask=20 --needed \
+            --overwrite "/usr/*" \
+            --overwrite "/ucrt64/*" \
+            --overwrite "/mingw64/*" \
+            --overwrite "/mingw32/*" \
+            --overwrite "/clang64/*" \
+            --overwrite "/clang32/*" \
+            "$prefix$pkg" > /dev/null 2>&1; then
+            pacman -D --asexplicit "$prefix$pkg" > /dev/null 2>&1
+            echo "$pkg" >> $file
             echo "done"
         else
+            ret=false
             echo "failed"
         fi
     done
-    sort -uo /etc/pac-mingw-extra.pk{,} > /dev/null 2>&1
-    sort -uo /etc/pac-msys-extra.pk{,} > /dev/null 2>&1
+    sort -uo $file{,} > /dev/null 2>&1
     do_hide_all_sharedlibs
-}
+    $ret
+)
 
-do_pacman_remove() {
-    local pkg msyspackage=false pkgs
+do_pacman_remove() (
+    ret=true
+    prefix=$MINGW_PACKAGE_PREFIX-
+    file=/etc/pac-mingw-extra.pk
+    pkgs=()
     while true; do
         case "$1" in
-        -m) msyspackage=true && shift ;;
+        -m)
+            prefix=
+            file=/etc/pac-msys-extra.pk
+            shift
+            ;;
         *) break ;;
         esac
     done
     for pkg; do
-        if ! $msyspackage && [[ $pkg != "${MINGW_PACKAGE_PREFIX}-"* ]]; then
-            pkgs="${pkgs:+$pkgs }${MINGW_PACKAGE_PREFIX}-${pkg}"
-        else
-            pkgs="${pkgs:+$pkgs }${pkg}"
-        fi
+        for line in $(do_pacman_resolve_pkgs "$pkg"); do
+            if is_pkg_installed "$line"; then
+                pkgs+=("$line")
+            fi
+        done
     done
 
-    for pkg in $pkgs; do
-        if $msyspackage; then
-            [[ -f /etc/pac-msys-extra.pk ]] &&
-                sed -i "/^${pkg}$/d" /etc/pac-msys-extra.pk > /dev/null 2>&1
-        else
-            [[ -f /etc/pac-mingw-extra.pk ]] &&
-                sed -i "/^${pkg#$MINGW_PACKAGE_PREFIX-}$/d" /etc/pac-mingw-extra.pk > /dev/null 2>&1
-        fi
-        pacman -Qqe "$pkg" > /dev/null 2>&1 || continue
-        do_simple_print -n "Uninstalling ${pkg#$MINGW_PACKAGE_PREFIX-}... "
-        do_hide_pacman_sharedlibs "$pkg" revert
-        if pacman -Rs --noconfirm --ask=20 "$pkg" > /dev/null 2>&1; then
+    for pkg in "${pkgs[@]}"; do
+        sed -i "/^${pkg}$/d" "$file" > /dev/null 2>&1
+        do_simple_print -n "Uninstalling $pkg... "
+        do_hide_pacman_sharedlibs "$prefix$pkg" revert
+        if pacman -Rs --noconfirm --ask=20 "$prefix$pkg" > /dev/null 2>&1; then
             echo "done"
         else
-            pacman -D --asdeps "$pkg" > /dev/null 2>&1
+            ret=false
+            pacman -D --asdeps "$prefix$pkg" > /dev/null 2>&1
             echo "failed"
         fi
     done
-    sort -uo /etc/pac-mingw-extra.pk{,} > /dev/null 2>&1
-    sort -uo /etc/pac-msys-extra.pk{,} > /dev/null 2>&1
+    sort -uo "$file"{,} > /dev/null 2>&1
     do_hide_all_sharedlibs
-    return 0
-}
+    $ret
+)
 
 do_prompt() {
     # from http://superuser.com/a/608509
@@ -1857,6 +1876,17 @@ create_debug_link() {
         fi
     done
 }
+
+# do_dlltool lib.a a.def
+do_dlltool() (
+    if dlltool --help | grep -q llvm; then
+        # llvm's dlltool does not support delay import libraries.
+        # Until I can find a better way than just injecting `-Wl,--delayload=a.dll` into the LDFLAGS,
+        # ignore them for now.
+        exec llvm-dlltool -k -l "$1" -d "$2"
+    fi
+    exec dlltool -k -y "$1" -d "$2" -A
+)
 
 get_vs_prefix() {
     unset vsprefix
@@ -2054,9 +2084,9 @@ clean_suite() {
     unix2dos -n newchangelog CHANGELOG.txt 2> /dev/null && rm -f newchangelog
 }
 
-create_diagnostic() {
-    local cmd cmds=("uname -a" "pacman -Qe" "pacman -Qd")
-    local _env envs=(MINGW_{PACKAGE_PREFIX,CHOST,PREFIX} MSYSTEM CPATH
+create_diagnostic() (
+    cmds=("uname -a" "pacman -Qe" "pacman -Qd")
+    envs=(MINGW_{PACKAGE_PREFIX,CHOST,PREFIX} MSYSTEM CPATH
         LIBRARY_PATH {LD,C,CPP,CXX}FLAGS PATH)
     do_print_progress "  Creating diagnostics file"
     git -C /trunk rev-parse --is-inside-work-tree > /dev/null 2>&1 &&
@@ -2064,14 +2094,14 @@ create_diagnostic() {
     {
         echo "Env variables:"
         for _env in "${envs[@]}"; do
-            printf '\t%s=%s\n' "$_env" "${!_env}"
+            declare -p "$_env" 2> /dev/null
         done
-        echo
         for cmd in "${cmds[@]}"; do
-            printf '\t%s\n%s\n\n' "$cmd": "$($cmd)"
+            echo
+            (set -x; $cmd)
         done
-    } > "$LOCALBUILDDIR/diagnostics.txt"
-}
+    } > "$LOCALBUILDDIR/diagnostics.txt" 2>&1
+)
 
 create_winpty_exe() {
     local exename="$1"
@@ -2281,41 +2311,6 @@ grep_and_sed() {
 
     /usr/bin/grep -q -- "$grep_re" "$grep_file" &&
         /usr/bin/sed -ri -- "$sed_re" "${sed_files[@]}"
-}
-
-compare_with_zeranoe() {
-    local comparison="${1:-builtin}"
-    local zeranoebase="https://ffmpeg.zeranoe.com/builds/readme"
-    local zeranoe32 zeranoe64
-    zeranoe32="$(curl -s "${zeranoebase}"/win32/static/ffmpeg-latest-win32-static-readme.txt |
-        sed -n '/Configuration/,/Libraries/{/\s*--/{s/\s*//gp}}' | sort)"
-    zeranoe64="$(curl -s "${zeranoebase}"/win64/static/ffmpeg-latest-win64-static-readme.txt |
-        sed -n '/Configuration/,/Libraries/{/\s*--/{s/\s*//gp}}' | sort)"
-    local localopts32=""
-    local localopts64=""
-    if [[ $comparison == "custom" ]]; then
-        local custom32="$LOCALBUILDDIR/ffmpeg_options_32bit.txt"
-        local custom64="$LOCALBUILDDIR/ffmpeg_options_64bit.txt"
-        local custom="$LOCALBUILDDIR/ffmpeg_options.txt"
-        [[ -f $custom32 ]] || custom32="$custom"
-        [[ -f $custom64 ]] || custom64="$custom"
-        if [[ -f $custom32 ]]; then
-            IFS=$'\n' read -d '' -r localopts32 < <(do_readoptionsfile "$custom32")
-        fi
-        if [[ -f $custom64 ]]; then
-            IFS=$'\n' read -d '' -r localopts64 < <(do_readoptionsfile "$custom64")
-        fi
-    else
-        IFS=$'\r\n' read -d '' -r -a bat < /trunk/media-autobuild_suite.bat
-        localopts32="$(do_readbatoptions "ffmpeg_options_(builtin|basic|zeranoe)" | sort)"
-        localopts64="$localopts32"
-    fi
-    echo "Missing options from zeranoe 32-bits in $comparison options:"
-    comm -23 <(echo "$zeranoe32") <(echo "$localopts32")
-    printf '\n'
-    echo "Missing options from zeranoe 64-bits in $comparison options:"
-    comm -23 <(echo "$zeranoe64") <(echo "$localopts64")
-    printf '\n'
 }
 
 fix_cmake_crap_exports() {

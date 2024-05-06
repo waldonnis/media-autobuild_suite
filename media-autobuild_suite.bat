@@ -105,8 +105,8 @@ set msyspackages=asciidoc autoconf-wrapper automake-wrapper autogen base bison d
 intltool libtool patch python xmlto make zip unzip git subversion wget p7zip man-db ^
 gperf winpty texinfo gyp doxygen autoconf-archive itstool ruby mintty flex msys2-runtime pacutils
 
-set mingwpackages=cmake dlfcn libpng gcc nasm pcre tools-git yasm ninja pkgconf meson ccache jq ^
-clang binutils gettext-tools
+set mingwpackages=cmake dlfcn libpng nasm pcre tools-git yasm ninja pkgconf meson ccache jq ^
+clang gettext-tools lld rust
 
 :: built-ins
 set ffmpeg_options_builtin=--disable-autodetect amf bzlib cuda cuvid d3d11va dxva2 ^
@@ -1750,6 +1750,12 @@ if not exist %instdir%\msys64\usr\bin\make.exe (
 for %%i in (%instdir%\msys64\usr\ssl\cert.pem) do if %%~zi==0 call :runBash cert.log update-ca-trust
 
 rem installmingw
+rem extra package for clang
+if %CC%==clang (
+    set "mingwpackages=%mingwpackages% gcc-compat"
+) else (
+    set "mingwpackages=%mingwpackages% binutils gcc"
+)
 if exist "%instdir%\msys64\etc\pac-mingw.pk" del "%instdir%\msys64\etc\pac-mingw.pk"
 for %%i in (%mingwpackages%) do echo.%%i>>%instdir%\msys64\etc\pac-mingw.pk
 if %build32%==yes call :getmingw 32
@@ -1884,7 +1890,11 @@ goto :EOF
 :writeProfile
 (
     echo.#!/usr/bin/bash
-    echo.MSYSTEM=MINGW%1
+    if %CC%==clang (
+        echo.MSYSTEM=CLANG%1
+    ) else (
+        echo.MSYSTEM=MINGW%1
+    )
     echo.source /etc/msystem
     echo.
     echo.# package build directory
@@ -1939,7 +1949,7 @@ goto :EOF
     echo.# CPPFLAGS used to be here, but cmake ignores it, so it's not as useful.
     echo.export DXSDK_DIR ACLOCAL_PATH PKG_CONFIG PKG_CONFIG_PATH CFLAGS CXXFLAGS LDFLAGS
     echo.
-    echo.export CARGO_HOME="/opt/cargo" RUSTUP_HOME="/opt/cargo"
+    echo.export CARGO_HOME="/opt/cargo"
     echo.export CCACHE_DIR="${LOCALBUILDDIR}/cache"
     echo.
     echo.export PYTHONPATH=
@@ -1947,7 +1957,7 @@ goto :EOF
     echo.LANG=en_US.UTF-8
     echo.PATH="${MINGW_PREFIX}/bin:${INFOPATH}:${MSYS2_PATH}:${ORIGINAL_PATH}"
     echo.PATH="${LOCALDESTDIR}/bin-audio:${LOCALDESTDIR}/bin-global:${LOCALDESTDIR}/bin-video:${LOCALDESTDIR}/bin:${PATH}"
-    echo.PATH="/opt/cargo/bin:/opt/bin:${PATH}"
+    echo.PATH="/opt/bin:${PATH}"
     echo.source '/etc/profile.d/perlbin.sh'
     echo.PS1='\[\033[32m\]\u@\h \[\e[33m\]\w\[\e[0m\]\n\$ '
     echo.HOME="/home/${USERNAME}"
@@ -1997,13 +2007,22 @@ goto :EOF
 
 :getmingw
 setlocal
-if exist %instdir%\msys64\mingw%1\bin\gcc.exe GOTO :EOF
+set found=0
+set "compilers=%instdir%\msys64\mingw%1\bin\gcc.exe %instdir%\msys64\clang%1\bin\clang.exe"
+for %%i in (%compilers%) do if exist %%i set found=1
+if %found%==1 GOTO :EOF
 echo.-------------------------------------------------------------------------------
 echo.install %1 bit compiler
 echo.-------------------------------------------------------------------------------
-if "%1"=="32" (
-    set prefix=mingw-w64-i686-
-) else set prefix=mingw-w64-x86_64-
+if %CC%==clang (
+    if "%1"=="32" (
+        set prefix=mingw-w64-clang-i686-
+    ) else set prefix=mingw-w64-clang-x86_64-
+) else (
+    if "%1"=="32" (
+        set prefix=mingw-w64-i686-
+    ) else set prefix=mingw-w64-x86_64-
+)
 (
     echo.printf '\033]0;install %1 bit compiler\007'
     echo.[[ "$(uname)" = *6.1* ]] ^&^& nargs="-n 4"
@@ -2014,10 +2033,11 @@ if "%1"=="32" (
 )>%build%\mingw.sh
 call :runBash mingw%1.log /build/mingw.sh
 
-if not exist %instdir%\msys64\mingw%1\bin\gcc.exe (
+for %%i in (%compilers%) do if exist %%i set found=1
+if %found%==0 (
     echo -------------------------------------------------------------------------------
     echo.
-    echo.MinGW%1 GCC compiler isn't installed; maybe the download didn't work
+    echo.MinGW%1 compiler isn't installed; maybe the download didn't work
     echo.Do you want to try it again?
     echo.
     echo -------------------------------------------------------------------------------

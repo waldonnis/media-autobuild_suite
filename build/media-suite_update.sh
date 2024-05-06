@@ -87,6 +87,8 @@ fi # end suite update
 grep -q abrepo /etc/pacman.conf && sed -i '/abrepo/d' /etc/pacman.conf
 rm -f /etc/pacman.d/abrepo.conf
 
+rm -rf /opt/cargo/bin
+
 echo
 echo "-------------------------------------------------------------------------------"
 echo "Updating pacman database..."
@@ -97,41 +99,51 @@ pacman -Sy --ask=20 --noconfirm
 { pacman -Qqe | grep -q sed && pacman -Qqg base | pacman -D --asdeps - && pacman -D --asexplicit mintty flex; } > /dev/null
 do_unhide_all_sharedlibs
 
+# make sure that pacutils is always installed for pacsift
+{ pacman -Qq pacutils || pacman -S --needed --noconfirm pacutils; } > /dev/null 2>&1
+
+extract_pkg_prefix() (
+    case $1 in
+    *32) [[ $build32 != "yes" ]] && return 1 ;;
+    *64) [[ $build64 != "yes" ]] && return 1 ;;
+    esac
+    . shell "$1"
+    echo "$MINGW_PACKAGE_PREFIX-"
+)
+
 if [[ -f /etc/pac-base.pk && -f /etc/pac-mingw.pk ]]; then
     echo
     echo "-------------------------------------------------------------------------------"
     echo "Checking pacman packages..."
     echo "-------------------------------------------------------------------------------"
     echo
-    printf -v new '%s\n' "$(tr -d '\r' < /etc/pac-base.pk)"
-    printf -v newmingw '%s\n' "$(tr -d '\r' < /etc/pac-mingw.pk)"
-    [[ -f /etc/pac-mingw-extra.pk ]] && printf -v newmingw '%s\n' "$newmingw" \
-        "$(tr -d '\r' < /etc/pac-mingw-extra.pk)"
-    [[ -f /etc/pac-msys-extra.pk ]] && printf -v newmsys '%s\n' "$(tr -d '\r' < /etc/pac-msys-extra.pk)"
-    new=$(echo -n "$new" | tr ' ' '\n' | sort -u)
-    newmingw=$(echo -n "$newmingw" | tr ' ' '\n' | sort -u)
-    newmsys=$(echo -n "$newmsys" | tr ' ' '\n' | sort -u)
-    for pkg in $newmingw; do
-        pkg=${pkg#mingw-w64-i686-}
-        pkg=${pkg#mingw-w64-x86_64-}
+    mapfile -t new < <(sort -u /etc/pac-base.pk | tr -d '\r')
+    mapfile -t newmingw < <(find /etc/pac-mingw.pk /etc/pac-mingw-extra.pk -exec sort -u {} + 2> /dev/null | tr -d '\r')
+    mapfile -t newmsys < <(sort -u /etc/pac-msys-extra.pk 2> /dev/null | tr -d '\r')
+    prefix_32= prefix_64=
+    case $CC in
+    *clang*) prefix_32=$(extract_pkg_prefix clang32) prefix_64=$(extract_pkg_prefix clang64) ;;
+    *) prefix_32=$(extract_pkg_prefix mingw32) prefix_64=$(extract_pkg_prefix mingw64) ;;
+    esac
+    for pkg in "${newmingw[@]}"; do
         if [[ $build32 == "yes" ]] &&
-            pacman -Ss "mingw-w64-i686-$pkg" > /dev/null 2>&1; then
-            printf -v new '%b' "$new\\nmingw-w64-i686-$pkg"
+            pacman -Ss "$prefix_32$pkg" > /dev/null 2>&1; then
+            new+=("$prefix_32$pkg")
         fi
         if [[ $build64 == "yes" ]] &&
-            pacman -Ss "mingw-w64-x86_64-$pkg" > /dev/null 2>&1; then
-            printf -v new '%b' "$new\\nmingw-w64-x86_64-$pkg"
+            pacman -Ss "$prefix_64$pkg" > /dev/null 2>&1; then
+            new+=("$prefix_64$pkg")
         fi
     done
-    for pkg in $newmsys; do
-        pacman -Ss "^${pkg}$" > /dev/null 2>&1 && printf -v new '%b' "$new\\n$pkg"
+    for pkg in "${newmsys[@]}"; do
+        pacman -Ss "^${pkg}$" > /dev/null 2>&1 && new+=("$pkg")
     done
-    old=$(pacman -Qqe | sort)
-    new=$(sort -u <<< "$new")
-    install=$(diff --changed-group-format='%>' --unchanged-group-format='' <(echo "$old") <(echo "$new"))
-    uninstall=$(diff --changed-group-format='%<' --unchanged-group-format='' <(echo "$old") <(echo "$new"))
+    mapfile -t old < <(pacman -Qqe | sort -u)
+    mapfile -t new < <(printf %s\\n "${new[@]}" | sort -u)
+    mapfile -t install < <(diff --changed-group-format='%>' --unchanged-group-format='' <(printf %s\\n "${old[@]}") <(printf %s\\n "${new[@]}"))
+    mapfile -t uninstall < <(diff --changed-group-format='%<' --unchanged-group-format='' <(printf %s\\n "${old[@]}") <(printf %s\\n "${new[@]}"))
 
-    if [[ -n $uninstall ]]; then
+    if [[ ${#uninstall[@]} -gt 0 ]]; then
         echo
         echo "-------------------------------------------------------------------------------"
         echo "You have more packages than needed!"
@@ -139,33 +151,31 @@ if [[ -f /etc/pac-base.pk && -f /etc/pac-mingw.pk ]]; then
         echo "-------------------------------------------------------------------------------"
         echo
         echo "Remove:"
-        echo "$uninstall"
+        echo "${uninstall[*]}"
         while true; do
             read -r -p "remove packs [y/n]? " yn
             case $yn in
             [Yy]*)
-                for pkg in $uninstall; do
-                    {
-                        pacman -Rs --noconfirm --ask 20 "$pkg" >&2 2> /dev/null
-                        pacman -Qs "^${pkg}$" && pacman -D --noconfirm --ask 20 --asdeps "$pkg"
-                    } > /dev/null
+                pacman -Rs --noconfirm "${uninstall[@]}" >&2 2> /dev/null
+                for pkg in "${uninstall[@]}"; do
+                    pacman -Qs "^${pkg}$" && pacman -D --noconfirm --asdeps "$pkg" > /dev/null
                 done
                 break
                 ;;
             [Nn]*)
-                pacman --noconfirm -D --asdeps $uninstall
+                pacman --noconfirm -D --asdeps "${uninstall[@]}"
                 break
                 ;;
             *) echo "Please answer yes or no" ;;
             esac
         done
     fi
-    if [[ -n $install ]]; then
+    if [[ ${#install[@]} -gt 0 ]]; then
         echo "You're missing some packages!"
         echo "Proceeding with installation..."
-        xargs $nargs pacman -Sw --noconfirm --ask 20 --needed <<< "$install"
-        xargs $nargs pacman -S --noconfirm --ask 20 --needed <<< "$install"
-        pacman -D --asexplicit $install
+        pacman -Sw --noconfirm --needed "${install[@]}"
+        pacman -S --noconfirm --needed "${install[@]}"
+        pacman -D --asexplicit "${install[@]}"
     fi
     rm -f /etc/pac-{base,mingw}.pk
 fi
@@ -174,11 +184,6 @@ if [[ -d "/trunk" ]]; then
     cd "/trunk" || exit 1
 else
     cd_safe "$(cygpath -w /).."
-fi
-
-if command -v rustup &> /dev/null; then
-    echo "Updating rust..."
-    rustup update
 fi
 
 # --------------------------------------------------
@@ -193,15 +198,15 @@ if [[ -n $have_updates ]]; then
     /usr/bin/grep -Eq '^(pacman|bash|msys2-runtime)$' <<< "$have_updates" &&
         touch /build/update_core &&
         have_updates="$(/usr/bin/grep -Ev '^(pacman|bash|msys2-runtime)$' <<< "$have_updates")"
-    xargs $nargs pacman -S --noconfirm --ask 20 --overwrite "/mingw64/*" \
+    xargs $nargs pacman -S --noconfirm --overwrite "/mingw64/*" \
         --overwrite "/mingw32/*" --overwrite "/usr/*" <<< "$have_updates"
 fi
 
 [[ ! -s /usr/ssl/certs/ca-bundle.crt ]] &&
-    pacman -S --noconfirm --ask 20 --asdeps ca-certificates
+    pacman -S --noconfirm --asdeps ca-certificates
 
 # do a final overall installation for potential downgrades
-pacman -Syuu --noconfirm --ask 20 --overwrite "/mingw64/*" \
+pacman -Syuu --noconfirm --overwrite "/mingw64/*" \
     --overwrite "/mingw32/*" --overwrite "/usr/*"
 
 do_hide_all_sharedlibs

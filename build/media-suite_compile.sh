@@ -162,6 +162,8 @@ pacman -S --noconfirm "$MINGW_PACKAGE_PREFIX-cmake" > /dev/null 2>&1
 # Global header fixups
 grep_and_sed '__declspec(__dllimport__)' "$MINGW_PREFIX"/include/gmp.h \
         's|__declspec\(__dllimport__\)||g' "$MINGW_PREFIX"/include/gmp.h
+$CC -E -P -include pthread.h - < /dev/null | grep -q MemoryBarrier ||
+    grep_and_sed MemoryBarrier "$MINGW_PREFIX/include/pthread.h" 's/MemoryBarrier/__sync_synchronize/g'
 
 set_title "compiling global tools"
 do_simple_print -p '\n\t'"${orange}Starting $bits compilation of global tools${reset}"
@@ -171,30 +173,6 @@ if [[ $packing = y &&
     do_wget -h 141e7cd8d009b827590662b482f1ae2f1dda17cf446a5651078235efb1429c59 \
         "https://github.com/upx/upx/releases/download/v4.2.2/upx-4.2.2-win32.zip"; then
     do_install upx.exe /opt/bin/upx.exe
-fi
-
-_check=("$RUSTUP_HOME"/bin/rustup.exe)
-if [[ "$ripgrep|$rav1e|$dssim|$libavif|$dovitool|$hdr10plustool" = *y* ]] || enabled librav1e; then
-    if ! files_exist "$RUSTUP_HOME"/bin/rustup.exe; then
-        mkdir -p "$LOCALBUILDDIR/rustinstall"
-        cd_safe "$LOCALBUILDDIR/rustinstall"
-        log download_rustup "${curl_opts[@]}" "https://sh.rustup.rs" -So rustup.sh
-        log install_rust ./rustup.sh -v -y --no-modify-path \
-            "--default-host=${MSYSTEM_CARCH}-pc-windows-gnu" \
-            --default-toolchain=stable
-        do_checkIfExist
-        hash -r
-        add_to_remove
-        cd_safe "$LOCALBUILDDIR"
-    fi
-    if ! [[ $(rustup toolchain list) =~ stable-$CARCH-pc-windows-gnu ]]; then
-        # install current target arch toolchain
-        log install_toolchain "$RUSTUP_HOME/bin/rustup.exe" toolchain \
-            install "stable-$CARCH-pc-windows-gnu"
-    fi
-    log rustup_update "$RUSTUP_HOME/bin/rustup.exe" update
-    log set_default_toolchain "$RUSTUP_HOME/bin/rustup.exe" default \
-        "stable-$CARCH-pc-windows-gnu"
 fi
 
 _check=(bin-global/rg.exe)
@@ -359,8 +337,8 @@ if [[ $curl = y ]]; then
     [[ $curl = y ]] && curl=schannel
 fi
 _check=(libgnutls.{,l}a gnutls.pc)
-_gnutls_ver=3.7.8
-_gnutls_hash=c58ad39af0670efe6a8aee5e3a8b2331a1200418b64b7c51977fb396d4617114
+_gnutls_ver=3.8.5
+_gnutls_hash=66269a2cfe0e1c2dabec87bdbbd8ab656f396edd9a40dd006978e003cfa52bfc
 if enabled_any gnutls librtmp || [[ $rtmpdump = y || $curl = gnutls ]] &&
     do_pkgConfig "gnutls = $_gnutls_ver" &&
     do_wget -h $_gnutls_hash \
@@ -587,7 +565,7 @@ if [[ $ffmpeg != no && -f $opencldll ]] && enabled opencl; then
         mkdir -p opencl && cd_safe opencl
         create_build_dir
         gendef "$opencldll" >/dev/null 2>&1
-        [[ -f OpenCL.def ]] && dlltool -y libOpenCL.a -d OpenCL.def -k -A
+        [[ -f OpenCL.def ]] && do_dlltool libOpenCL.a OpenCL.def
         [[ -f libOpenCL.a ]] && do_install libOpenCL.a
         do_checkIfExist
     fi
@@ -612,8 +590,7 @@ if [[ $ffmpeg != no || $standalone = y ]] && enabled libtesseract; then
         do_autogen
         _check+=(bin-global/tesseract.exe)
         do_uninstall include/tesseract "${_check[@]}"
-        sed -i -e 's|Libs.private.*|& -lstdc++|' \
-               -e 's|Requires.private.*|& libarchive iconv libtiff-4|' tesseract.pc.in
+        sed -i 's|Requires.private.*|& libarchive iconv libtiff-4|' tesseract.pc.in
         grep_or_sed ws2_32 "$MINGW_PREFIX/lib/pkgconfig/libarchive.pc" 's;Libs.private:.*;& -lws2_32;g'
         case $CC in
         *gcc) sed -i -e 's|Libs.private.*|& -fopenmp -lgomp|' tesseract.pc.in ;;
@@ -684,8 +661,6 @@ if [[ $ffmpeg != no ]] && enabled libilbc &&
     do_cmakeinstall -DUNIX=OFF
     do_checkIfExist
 fi
-
-grep_or_sed stdc++ "$(file_installed libilbc.pc)" "/Libs:/ a\Libs.private: -lstdc++"
 
 _check=(libogg.{l,}a ogg/ogg.h ogg.pc)
 if { [[ $flac = y ]] || enabled libvorbis; } &&
@@ -936,6 +911,7 @@ _check=(bin-audio/sox.exe sox.pc)
 _deps=(libsndfile.a opus.pc "$MINGW_PREFIX"/lib/libmp3lame.a)
 if [[ $sox = y ]] && do_vcs "$SOURCE_REPO_SOX" sox; then
     do_patch "https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/sox/0001-sox_version-fold-function-into-sox_version_info.patch" am
+    do_patch "https://raw.githubusercontent.com/msys2/MINGW-packages/master/mingw-w64-sox/0001-ucrt-no-rewind-pipe.patch"
     do_pacman_install libmad
     do_uninstall sox.{pc,h} bin-audio/{soxi,play,rec}.exe libsox.{l,}a "${_check[@]}"
     do_autoreconf
@@ -977,7 +953,7 @@ if [[ $ffmpeg != no ]] && enabled libopenmpt &&
         "TEST=0" "OS=" "CC=$CC" "CXX=$CXX" "MINGW_COMPILER=${CC##* }")
     log clean make clean "${extracommands[@]}"
     do_makeinstall PREFIX="$LOCALDESTDIR" "${extracommands[@]}"
-    sed -i 's/Libs.private.*/& -lrpcrt4 -lstdc++/' "$LOCALDESTDIR/lib/pkgconfig/libopenmpt.pc"
+    sed -i 's/Libs.private.*/& -lrpcrt4/' "$LOCALDESTDIR/lib/pkgconfig/libopenmpt.pc"
     do_checkIfExist
 fi
 
@@ -1027,7 +1003,7 @@ if { { [[ $ffmpeg != no ]] &&
     do_uninstall "${_check[@]}"
     do_patch "https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/openal-soft/0001-CMake-Fix-issues-for-mingw-w64.patch" am
     do_cmakeinstall -DLIBTYPE=STATIC -DALSOFT_UTILS=OFF -DALSOFT_EXAMPLES=OFF
-    sed -i 's/Libs.private.*/& -luuid -lole32 -lstdc++/' "$LOCALDESTDIR/lib/pkgconfig/openal.pc" # uuid is for FOLDERID_* stuff
+    sed -i 's/Libs.private.*/& -luuid -lole32/' "$LOCALDESTDIR/lib/pkgconfig/openal.pc" # uuid is for FOLDERID_* stuff
     do_checkIfExist
     unset _mingw_patches
 fi
@@ -1099,11 +1075,10 @@ if [[ $ffmpeg != no ]] && enabled libvmaf &&
     do_pacman_install -m vim # for built_in_models
     cd_safe libvmaf
     CFLAGS="-msse2 -mfpmath=sse -mstackrealign $CFLAGS" do_mesoninstall video \
-        -Denable_float=true -Dbuilt_in_models=true
+        -Denable_float=true -Dbuilt_in_models=true -Denable_tests=false
     do_checkIfExist
 fi
 file_installed -s libvmaf.dll.a && rm "$(file_installed libvmaf.dll.a)"
-grep_or_sed stdc++ "$(file_installed libvmaf.pc)" 's;Libs.private.*;& -lstdc++;'
 
 _check=(libaom.a aom.pc)
 if [[ $aom = y || $standalone = y ]]; then
@@ -1143,14 +1118,7 @@ if { [[ $dav1d = y ]] || [[ $libavif = y ]] || { [[ $ffmpeg != no ]] && enabled 
     do_checkIfExist
 fi
 
-_check=(/opt/cargo/bin/cargo-c{build,api}.exe)
-if { enabled librav1e || [[ $libavif = y ]]; } &&
-    do_vcs "$SOURCE_REPO_CARGOC"; then
-    # Delete any old cargo-cbuilds
-    [[ -x /opt/cargo/bin/cargo-cbuild.exe ]] && log uninstall.cargo-c cargo uninstall -q cargo-c
-    do_rustinstall
-    do_checkIfExist
-fi
+{ enabled librav1e || [[ $libavif = y ]]; } && do_pacman_install cargo-c
 
 _check=()
 { [[ $rav1e = y ]] ||
@@ -1175,7 +1143,7 @@ if { [[ $rav1e = y ]] || [[ $libavif = y ]] || enabled librav1e; } &&
         PKG_CONFIG="$LOCALDESTDIR/bin/ab-pkg-config-static.bat" \
             CC="ccache clang" \
             CXX="ccache clang++" \
-            log "install-rav1e-c" "$RUSTUP_HOME/bin/cargo.exe" capi install \
+            log "install-rav1e-c" cargo capi install \
             --release --jobs "$cpuCount" --prefix="$LOCALDESTDIR" \
             --destdir="$PWD/install-$bits"
 
@@ -1298,6 +1266,7 @@ _check=(libbluray.{{l,}a,pc})
 if { { [[ $ffmpeg != no ]] && enabled libbluray; } || ! mpv_disabled libbluray; } &&
     do_vcs "$SOURCE_REPO_LIBBLURAY"; then
     [[ -f contrib/libudfread/.git ]] || log git.submodule git submodule update --init
+    do_patch "https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/libbluray/0001-dec-prefix-with-libbluray-for-now.patch" am
     do_autoreconf
     do_uninstall include/libbluray share/java "${_check[@]}"
     sed -i 's|__declspec(dllexport)||g' jni/win32/jni_md.h
@@ -1519,8 +1488,10 @@ _check=(libgpac_static.a bin-video/{MP4Box,gpac}.exe)
 if [[ $mp4box = y ]] && do_vcs "$SOURCE_REPO_GPAC"; then
     do_uninstall include/gpac "${_check[@]}"
     git grep -PIl "\xC2\xA0" | xargs -r sed -i 's/\xC2\xA0/ /g'
-    LDFLAGS+=" -L$LOCALDESTDIR/lib -L$MINGW_PREFIX/lib" \
-        do_separate_conf --static-bin --static-build --static-modules --enable-all
+    # Disable passing rpath to the linker, as it's a no-op with ld, but an error with lld
+    find . -name "Makefile" -exec grep -q rpath {} \; -exec sed -i '/^LINKFLAGS.*-rpath/s/^/#/' {} +
+    LIBRARY_PATH="$(cygpath -pm "$LOCALDESTDIR/lib:$MINGW_PREFIX/lib")" \
+        do_separate_conf --static-bin --static-build --static-modules
     do_make
     log "install" make install-lib
     do_install bin/gcc/MP4Box.exe bin/gcc/gpac.exe bin-video/
@@ -1617,7 +1588,7 @@ if [[ $x264 != no ]] ||
             _check=("$LOCALDESTDIR"/opt/lightffmpeg/lib/pkgconfig/ffms2.pc bin-video/ffmsindex.exe)
             if do_vcs "$SOURCE_REPO_FFMS2"; then
                 do_uninstall "${_check[@]}"
-                sed -i 's/Libs.private.*/& -lstdc++/;s/Cflags.*/& -DFFMS_STATIC/' ffms2.pc.in
+                sed -i 's/Cflags.*/& -DFFMS_STATIC/' ffms2.pc.in
                 do_patch "https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/ffms2/0001-ffmsindex-fix-linking-issues.patch" am
                 mkdir -p src/config
                 do_autoreconf
@@ -1684,7 +1655,8 @@ fi
 _check=(x265{,_config}.h libx265.a x265.pc)
 [[ $standalone = y ]] && _check+=(bin-video/x265.exe)
 if [[ ! $x265 = n ]] && do_vcs "$SOURCE_REPO_X265"; then
-    #do_patch "https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/x265/0001-cmake-split-absolute-library-paths-to-L-and-l.patch" am
+    do_patch "https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/x265/0001-cmake-split-absolute-library-paths-to-L-and-l.patch" am
+    grep_and_sed CMAKE_CXX_IMPLICIT_LINK_LIBRARIES source/CMakeLists.txt 's|\$\{CMAKE_CXX_IMPLICIT_LINK_LIBRARIES\}||g'
     do_uninstall libx265{_main10,_main12}.a bin-video/libx265_main{10,12}.dll "${_check[@]}"
     [[ $bits = 32bit ]] && assembly=-DENABLE_ASSEMBLY=OFF
     [[ $x265 = d ]] && xpsupport=-DWINXP_SUPPORT=ON
@@ -1825,15 +1797,15 @@ _vapoursynth_install() {
         do_simple_print "${orange}Vapoursynth is known to be broken on 32-bit and will be disabled"'!'"${reset}"
         return 1
     fi
-    _python_ver=3.11.7
-    _python_lib=python311
-    _vsver=65
+    _python_ver=3.12.2
+    _python_lib=python312
+    _vsver=66
     _check=("lib$_python_lib.a")
     if files_exist "${_check[@]}"; then
         do_print_status "python $_python_ver" "$green" "Up-to-date"
     elif do_wget "https://www.python.org/ftp/python/$_python_ver/python-$_python_ver-embed-amd64.zip"; then
         gendef "$_python_lib.dll" >/dev/null 2>&1
-        dlltool -y "lib$_python_lib.a" -d "$_python_lib.def"
+        do_dlltool "lib$_python_lib.a" "$_python_lib.def"
         [[ -f lib$_python_lib.a ]] && do_install "lib$_python_lib.a"
         do_checkIfExist
     fi
@@ -1841,9 +1813,12 @@ _vapoursynth_install() {
     _check=(lib{vapoursynth,vsscript}.a vapoursynth{,-script}.pc vapoursynth/{VS{Helper,Script},VapourSynth}.h)
     if pc_exists "vapoursynth = $_vsver" && files_exist "${_check[@]}"; then
         do_print_status "vapoursynth R$_vsver" "$green" "Up-to-date"
-    elif do_wget "https://github.com/vapoursynth/vapoursynth/releases/download/R$_vsver/VapourSynth${bits%bit}-Portable-R$_vsver.7z"; then
+    elif do_wget "https://github.com/vapoursynth/vapoursynth/releases/download/R$_vsver/VapourSynth${bits%bit}-Portable-R$_vsver.zip"; then
         do_uninstall {vapoursynth,vsscript}.lib include/vapoursynth "${_check[@]}"
         do_install sdk/include/*.h include/vapoursynth/
+
+        # Extract the .dll from the pip wheel
+        log "7z" 7z e -y -aoa wheel/VapourSynth-66-cp312-cp312-win_amd64.whl VapourSynth-66.data/data/Lib/site-packages/vapoursynth.dll
 
         create_build_dir
         declare -A _pc_vars=(
@@ -1853,14 +1828,12 @@ _vapoursynth_install() {
 
             [vsscript-name]=vapoursynth-script
             [vsscript-description]='Library for interfacing VapourSynth with Python'
-            [vsscript-private]="-l$_python_lib -lstdc++"
+            [vsscript-private]="-l$_python_lib"
         )
         for _file in vapoursynth vsscript; do
             gendef - "../$_file.dll" 2>/dev/null |
                 sed -E 's|^_||;s|@[1-9]+$||' > "${_file}.def"
-            # shellcheck disable=SC2046
-            dlltool -y "lib${_file}.a" -d "${_file}.def" \
-                $([[ $bits = 32bit ]] && echo "-U") 2>/dev/null
+            do_dlltool "lib${_file}.a" "${_file}.def"
             [[ -f lib${_file}.a ]] && do_install "lib${_file}.a"
             # shellcheck disable=SC2016
             printf '%s\n' \
@@ -1896,7 +1869,6 @@ if [[ $ffmpeg != no ]] && enabled liblensfun &&
     do_patch "https://github.com/m-ab-s/mabs-patches/raw/master/lensfun/0001-CMake-exclude-mingw-w64-from-some-msvc-exclusive-thi.patch" am
     do_patch "https://github.com/m-ab-s/mabs-patches/raw/master/lensfun/0002-CMake-don-t-add-glib2-s-includes-as-SYSTEM-dirs.patch" am
     do_patch "https://github.com/lensfun/lensfun/pull/1999.patch" am
-    grep_or_sed Libs.private libs/lensfun/lensfun.pc.cmake '/Libs:/ a\Libs.private: -lstdc++'
     do_uninstall "bin-video/lensfun" "${_check[@]}"
     CFLAGS+=" -DGLIB_STATIC_COMPILATION" CXXFLAGS+=" -DGLIB_STATIC_COMPILATION" \
         do_cmakeinstall -DBUILD_STATIC=on -DBUILD_{TESTS,LENSTOOL,DOC}=off \
@@ -1937,7 +1909,6 @@ _check=(bin-video/vvenc{,FF}app.exe
     lib/cmake/vvenc/vvencConfig.cmake)
 if [[ $bits = 64bit && $vvenc = y ]] &&
     do_vcs "$SOURCE_REPO_LIBVVENC"; then
-    do_patch "https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/vvenc/0001-InterSearch-use-vector-to-replace-VLA.patch" am
     do_uninstall include/vvenc lib/cmake/vvenc "${_check[@]}"
     do_cmakeinstall video -DVVENC_ENABLE_LINK_TIME_OPT=ON -DVVENC_INSTALL_FULLFEATURE_APP=ON \
         -DVVENC_OPT_TARGET_ARCH=znver3
@@ -2079,7 +2050,7 @@ fi
 enabled openssl && hide_libressl
 if [[ $ffmpeg != no ]]; then
     enabled libgsm && do_pacman_install gsm
-    enabled libsnappy && do_addOption --extra-libs=-lstdc++ && do_pacman_install snappy
+    enabled libsnappy && do_pacman_install snappy
     if enabled libxvid && [[ $standalone = n ]]; then
         do_pacman_install xvidcore
         [[ -f $MINGW_PREFIX/lib/xvidcore.a ]] && mv -f "$MINGW_PREFIX"/lib/{,lib}xvidcore.a
@@ -2132,7 +2103,7 @@ if [[ $ffmpeg != no ]]; then
         fi
         unset _sha256 _openh264_ver
     fi
-    enabled chromaprint && do_addOption --extra-cflags=-DCHROMAPRINT_NODLL --extra-libs=-lstdc++ &&
+    enabled chromaprint && do_addOption --extra-cflags=-DCHROMAPRINT_NODLL &&
         { do_pacman_remove fftw; do_pacman_install chromaprint; }
     if enabled libzmq; then
         do_pacman_install zeromq
@@ -2200,6 +2171,14 @@ if [[ $ffmpeg != no ]]; then
         if [[ ${#FFMPEG_OPTS[@]} -gt 35 ]]; then
             # remove redundant -L and -l flags from extralibs
             do_patch "https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/ffmpeg/0001-configure-deduplicate-linking-flags.patch" am
+        fi
+        # Removes hardcoding of libstdc++ for clang
+        do_patch "https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/ffmpeg/0001-configure-strip-hardcoded-lstdc.patch" am
+
+        # Removes hardcoding of -lstdc++ and -lc++ from the .pc files
+        if [[ $CC == *clang* ]]; then
+            find "$MINGW_PREFIX/lib/pkgconfig" "$LOCALDESTDIR/lib/pkgconfig" -name '*.pc' -exec grep -q -- -lstdc++ {} \; -exec sed -i 's;-lstdc++;;g' {} +
+            find "$MINGW_PREFIX/lib/pkgconfig" "$LOCALDESTDIR/lib/pkgconfig" -name '*.pc' -exec grep -q -- -lc++ {} \; -exec sed -i 's;-lc++;;g' {} +
         fi
 
         # Fix for libjxl changes that removes including version.h from decode.h
@@ -2535,6 +2514,10 @@ if [[ $mpv != n ]] && pc_exists libavcodec libavformat libswscale libavfilter; t
                 fi
             done
         fi
+        if [[ $CC == *clang* ]]; then
+            mpv_cflags+=("-Wno-incompatible-function-pointer-types")
+            mpv_ldflags+=("-lc++")
+        fi
 
         extra_script pre configure
         CFLAGS+=" ${mpv_cflags[*]} -Wno-int-conversion" LDFLAGS+=" ${mpv_ldflags[*]}" \
@@ -2584,30 +2567,18 @@ fi
 if [[ $bmx = y ]]; then
     do_pacman_install uriparser
 
-    _check=(bin-video/MXFDump.exe libMXF-1.0.{{,l}a,pc})
-    if do_vcs "$SOURCE_REPO_LIBMXF" libMXF-1.0; then
-        do_autogen
-        do_uninstall include/libMXF-1.0 "${_check[@]}"
-        do_separate_confmakeinstall video --disable-examples
-        do_checkIfExist
-    fi
-
-    _check=(libMXF++-1.0.{{,l}a,pc})
-    _deps=(libMXF-1.0.a)
-    if do_vcs "$SOURCE_REPO_LIBMXFPP" libMXF++-1.0; then
-        do_autogen
-        do_uninstall include/libMXF++-1.0 "${_check[@]}"
-        do_separate_confmakeinstall video --disable-examples
-        do_checkIfExist
-    fi
-
+    # libMXF and libMXF++ were moved into bmx.
     _check=(bin-video/{bmxtranswrap,{h264,mov,vc2}dump,mxf2raw,raw2bmx}.exe)
-    _deps=("$MINGW_PREFIX"/lib/liburiparser.a lib{MXF{,++}-1.0,curl}.a)
+    _deps=("$MINGW_PREFIX"/lib/liburiparser.a)
     if do_vcs "$SOURCE_REPO_LIBBMX"; then
-        do_autogen
+        (
+            pushd deps/libMXF >/dev/null
+            do_patch "https://github.com/bbc/libMXF/commit/0a9d2129f2a883d600369b031e1ee29dc808a193.patch" am
+            popd >/dev/null
+        ) || do_exit_prompt "Did you delete the libMXF folder?"
         do_uninstall libbmx-0.1.{{,l}a,pc} bin-video/bmxparse.exe \
             include/bmx-0.1 "${_check[@]}"
-        do_separate_confmakeinstall video
+        do_cmakeinstall video -DUNIX=OFF -DBMX_BUILD_TESTING=OFF -DBMX_BUILD_WITH_LIBCURL=OFF -DLIBMXF_BUILD_TOOLS=OFF -DLIBMXF_BUILD_MXFDUMP=OFF
         do_checkIfExist
     fi
 fi
@@ -2631,7 +2602,9 @@ if [[ $cyanrip = y ]]; then
     if do_vcs "$SOURCE_REPO_LIBMUSICBRAINZ"; then
         do_patch "https://github.com/metabrainz/libmusicbrainz/compare/master...wiiaboo:libmusicbrainz:master.patch" am
         do_uninstall "${_check[@]}" include/musicbrainz5
-        LIBRARY_PATH="$(cygpath -pm "$LOCALDESTDIR/lib:$MINGW_PREFIX/lib")" do_cmakeinstall
+        CXXFLAGS+=" $($PKG_CONFIG --cflags libxml-2.0)" \
+            LDFLAGS+=" $($PKG_CONFIG --libs libxml-2.0)" \
+            do_cmakeinstall
         do_checkIfExist
     fi
 
