@@ -41,7 +41,6 @@ if %PROCESSOR_ARCHITECTURE%==x86 if NOT DEFINED PROCESSOR_ARCHITEW6432 (
     exit
 )
 
-
 if not exist %instdir% (
     echo ----------------------------------------------------------------------
     echo. You have probably run the script in a path with spaces.
@@ -101,15 +100,13 @@ do if %%f lss 4 (
 set build=%instdir%\build
 if not exist %build% mkdir %build%
 
-set msyspackages=asciidoc autoconf-wrapper automake-wrapper autogen base bison diffstat dos2unix filesystem help2man ^
-intltool libtool patch python xmlto make zip unzip git subversion wget p7zip man-db ^
-gperf winpty texinfo gyp doxygen autoconf-archive itstool ruby mintty flex msys2-runtime pacutils
+set msyspackages=autoconf-archive autoconf-wrapper autogen automake-wrapper base dos2unix ^
+filesystem git libtool make msys2-runtime patch pacutils p7zip subversion unzip winpty
 
-set mingwpackages=cmake dlfcn libpng nasm pcre tools-git yasm ninja pkgconf meson ccache jq ^
-clang gettext-tools lld rust
+set mingwpackages=ccache cmake dlfcn gettext-tools meson nasm ninja pkgconf
 
 :: built-ins
-set ffmpeg_options_builtin=--disable-autodetect amf bzlib cuda cuvid d3d11va dxva2 ^
+set ffmpeg_options_builtin=--disable-autodetect amf bzlib cuda cuvid d3d12va d3d11va dxva2 ^
 iconv lzma nvenc schannel zlib sdl2 ffnvcodec nvdec cuda-llvm
 
 :: common external libs
@@ -118,9 +115,9 @@ libdav1d libaom --disable-debug libfdk-aac
 
 :: options used in zeranoe builds and not present above
 set ffmpeg_options_zeranoe=fontconfig gnutls libass libbluray libfreetype ^
-libmfx libmysofa libopencore-amrnb libopencore-amrwb libopenjpeg libsnappy ^
+libharfbuzz libvpl libmysofa libopencore-amrnb libopencore-amrwb libopenjpeg libsnappy ^
 libsoxr libspeex libtheora libtwolame libvidstab libvo-amrwbenc ^
-libwebp libxml2 libzimg libshine gpl openssl libtls avisynth mbedtls libxvid ^
+libwebp libxml2 libzimg libshine gpl openssl libtls avisynth #mbedtls libxvid ^
 libopenmpt version3 librav1e libsrt libgsm libvmaf libsvtav1
 
 :: options also available with the suite
@@ -128,7 +125,7 @@ set ffmpeg_options_full=chromaprint decklink frei0r libaribb24 libbs2b libcaca ^
 libcdio libflite libfribidi libgme libilbc libsvthevc ^
 libsvtvp9 libkvazaar libmodplug librist librtmp librubberband #libssh ^
 libtesseract libxavs libzmq libzvbi openal libcodec2 ladspa #vapoursynth #liblensfun ^
-libglslang vulkan libdavs2 libxavs2 libuavs3d libplacebo libjxl
+libglslang vulkan libdavs2 libxavs2 libuavs3d libplacebo libjxl libvvenc libvvdec liblc3
 
 :: options also available with the suite that add shared dependencies
 set ffmpeg_options_full_shared=opencl opengl cuda-nvcc libnpp libopenh264
@@ -147,9 +144,9 @@ set mpv_options_full=dvdnav cdda #egl-angle #html-build ^
 
 set iniOptions=arch license2 vpx2 x2643 x2652 other265 flac fdkaac mediainfo ^
 soxB ffmpegB2 ffmpegUpdate ffmpegChoice mp4box rtmpdump mplayer2 mpv cores deleteSource ^
-strip pack logging bmx standalone updateSuite aom faac exhale ffmbc curl cyanrip2 ^
-rav1e ripgrep dav1d libavif vvc uvg266 jq dssim avs2 dovitool hdr10plustool ^
-timeStamp noMintty ccache svthevc svtav1 svtvp9 xvc jo vlc CC jpegxl vvenc vvdec ffmpegPath
+strip pack logging bmx standalone updateSuite av1an aom faac exhale ffmbc curl cyanrip2 ^
+rav1e ripgrep dav1d libavif vvc uvg266 jq dssim avs2 dovitool hdr10plustool timeStamp ^
+noMintty ccache svthevc svtav1 svtvp9 xvc jo vlc CC jpegxl vvenc vvdec ffmpegPath pkgUpdateTime
 @rem re-add autouploadlogs if we find some way to upload to github directly instead
 
 set deleteIni=0
@@ -261,6 +258,34 @@ if %buildstandalone%==2 set "standalone=n"
 if %buildstandalone% GTR 2 GOTO standalone
 if %deleteINI%==1 echo.standalone=^%buildstandalone%>>%ini%
 
+:av1an
+if [0]==[%av1anINI%] (
+    echo -------------------------------------------------------------------------------
+    echo -------------------------------------------------------------------------------
+    echo.
+    echo. Build Av1an [Scalable video encoding framework]?
+    echo. 1 = Yes [link with static FFmpeg]
+    echo. 2 = Yes [link with shared FFmpeg]
+    echo. 3 = No
+    echo.
+    echo. Av1an requires local installed copies of Python and Vapoursynth,
+    echo. an executable of FFmpeg and one of these encoders to function:
+    echo. aom, SVT-AV1, rav1e, vpx, x264, or x265
+    echo. If FFmpeg is built shared, then the Av1an executable will be in a subfolder.
+    echo. (Note: Not available for 32-bit due to Vapoursynth being broken in 32-bit!^)
+    echo.
+    echo -------------------------------------------------------------------------------
+    echo -------------------------------------------------------------------------------
+    set /P buildav1an="Build av1an: "
+) else set buildav1an=%av1anINI%
+
+if "%buildav1an%"=="" GOTO av1an
+if %buildav1an%==1 set "av1an=y"
+if %buildav1an%==2 set "av1an=shared"
+if %buildav1an%==3 set "av1an=n"
+if %buildav1an% GTR 3 GOTO av1an
+if %deleteINI%==1 echo.av1an=^%buildav1an%>>%ini%
+
 :vpx
 if [0]==[%vpx2INI%] (
     echo -------------------------------------------------------------------------------
@@ -270,7 +295,7 @@ if [0]==[%vpx2INI%] (
     echo. 1 = Yes
     echo. 2 = No
     echo.
-    echo. Binaries being built depends on "standalone=y"
+    echo. Binaries being built depends on "standalone/av1an=y" and are always static.
     echo.
     echo -------------------------------------------------------------------------------
     echo -------------------------------------------------------------------------------
@@ -292,7 +317,7 @@ if [0]==[%aomINI%] (
     echo. 1 = Yes
     echo. 2 = No
     echo.
-    echo. Binaries being built depends on "standalone=y"
+    echo. Binaries being built depends on "standalone/av1an=y" and are always static.
     echo.
     echo -------------------------------------------------------------------------------
     echo -------------------------------------------------------------------------------
@@ -313,6 +338,8 @@ if [0]==[%rav1eINI%] (
     echo. Build rav1e [Alternative, faster AV1 standalone encoder]?
     echo. 1 = Yes
     echo. 2 = No
+    echo.
+    echo. Binaries being built depends on "standalone/av1an=y" and are always static.
     echo.
     echo -------------------------------------------------------------------------------
     echo -------------------------------------------------------------------------------
@@ -404,7 +431,7 @@ if [0]==[%x2643INI%] (
     echo. 6 = Same as 4 with video codecs only (can reduce size by ~3MB^)
     echo. 7 = Lib/binary with only 8-bit
     echo.
-    echo. Binaries being built depends on "standalone=y" and are always static.
+    echo. Binaries being built depends on "standalone/av1an=y" and are always static.
     echo.
     echo -------------------------------------------------------------------------------
     echo -------------------------------------------------------------------------------
@@ -436,7 +463,7 @@ if [0]==[%x2652INI%] (
     echo. 6 = Same as 1 with XP support and non-XP compatible x265-numa.exe
     echo. 7 = Lib/binary with Main12 only
     echo.
-    echo. Binaries being built depends on "standalone=y"
+    echo. Binaries being built depends on "standalone/av1an=y" and are always static.
     echo.
     echo -------------------------------------------------------------------------------
     echo -------------------------------------------------------------------------------
@@ -994,7 +1021,7 @@ if [0]==[%mplayer2INI%] (
     echo -------------------------------------------------------------------------------
     echo -------------------------------------------------------------------------------
     echo.
-    echo ######### UNSUPPORTED, IF IT BREAKS, IT BREAKS ################################
+    echo. #################### UNSUPPORTED, IF IT BREAKS, IT BREAKS ####################
     echo.
     echo. Build static mplayer/mencoder binary?
     echo. 1 = Yes
@@ -1043,14 +1070,15 @@ if [0]==[%vlcINI%] (
     echo -------------------------------------------------------------------------------
     echo -------------------------------------------------------------------------------
     echo.
-    echo. Build vlc?
+    echo. Build VLC media player?
     echo. Takes a long time because of qt5 and wouldn't recommend it if you
     echo. don't have ccache enabled.
     echo. 1 = Yes
     echo. 2 = No
     echo.
-    echo. Note: the resulting vlc is extra buggy, do not expect it to work smoothly
-    echo.
+    echo. Note: compilation of VLC is currently broken, do not enable unless you know
+    echo. what you are doing.
+    echo. 
     echo -------------------------------------------------------------------------------
     echo -------------------------------------------------------------------------------
     set /P buildvlc="Build vlc: "
@@ -1120,7 +1148,7 @@ if [0]==[%ffmbcINI%] (
     echo -------------------------------------------------------------------------------
     echo -------------------------------------------------------------------------------
     echo.
-    echo ######### UNSUPPORTED, IF IT BREAKS, IT BREAKS ################################
+    echo. #################### UNSUPPORTED, IF IT BREAKS, IT BREAKS ####################
     echo.
     echo. Build FFMedia Broadcast binary?
     echo. 1 = Yes
@@ -1430,8 +1458,8 @@ if [0]==[%loggingINI%] (
     echo. 1 = Yes [recommended]
     echo. 2 = No
     echo.
-    echo Note: Setting this to yes will also hide output from these commands.
-    echo On successful compilation, these logs are deleted since they aren't needed.
+    echo. Note: Setting this to yes will also hide output from these commands.
+    echo. On successful compilation, these logs are deleted since they aren't needed.
     echo.
     echo -------------------------------------------------------------------------------
     echo -------------------------------------------------------------------------------
@@ -1453,9 +1481,9 @@ if %deleteINI%==1 echo.logging=^%loggingF%>>%ini%
 @REM     echo. 1 = Yes [recommended]
 @REM     echo. 2 = No
 @REM     echo.
-@REM     echo This will upload logs.zip to 0x0.st for easy copy and pasting into github
-@REM     echo issues. If you choose no, then uploading logs will be your responsibility and
-@REM     echo no guarantees will be made for issues lacking logs.
+@REM     echo. This will upload logs.zip to 0x0.st for easy copy and pasting into github
+@REM     echo. issues. If you choose no, then uploading logs will be your responsibility and
+@REM     echo. no guarantees will be made for issues lacking logs.
 @REM     echo.
 @REM     echo -------------------------------------------------------------------------------
 @REM     echo -------------------------------------------------------------------------------
@@ -1477,8 +1505,8 @@ if [0]==[%updateSuiteINI%] (
     echo. 1 = Yes
     echo. 2 = No
     echo.
-    echo If you have made changes to the scripts, they will be reset but saved to a
-    echo .diff text file inside %build%
+    echo. If you have made changes to the scripts, they will be reset but saved to a
+    echo. .diff text file inside %build%
     echo.
     echo -------------------------------------------------------------------------------
     echo -------------------------------------------------------------------------------
@@ -1500,12 +1528,12 @@ if [0]==[%timeStampINI%] (
     echo. 1 = Yes
     echo. 2 = No
     echo.
-    echo This will show the start times of commands during compilation.
-    echo Don't turn this on unless you really want to see the timestamps.
+    echo. This will show the start times of commands during compilation.
+    echo. Don't turn this on unless you really want to see the timestamps.
     echo.
     echo -------------------------------------------------------------------------------
     echo -------------------------------------------------------------------------------
-    set /P timeStampF="Show Timestamps: "
+    set /P timeStampF="Show timestamps: "
 ) else set timeStampF=%timeStampINI%
 
 if "%timeStampF%"=="" GOTO timestamp
@@ -1520,11 +1548,11 @@ if [0]==[%ccacheINI%] (
     echo -------------------------------------------------------------------------------
     echo.
     echo. Use ccache when compiling?
-    echo. Experimental.
-    echo. Speeds up rebuilds and recompilations, but requires the files to be
-    echo. compiled at least once before any effect is seen
     echo. 1 = Yes
     echo. 2 = No
+    echo.
+    echo. Speeds up rebuilds and recompilations, but requires the files
+    echo. to be compiled at least once before any effect is seen
     echo.
     echo -------------------------------------------------------------------------------
     echo -------------------------------------------------------------------------------
@@ -1547,10 +1575,10 @@ if [0]==[%noMinttyINI%] (
     echo. 1 = Yes
     echo. 2 = No
     echo.
-    echo This will disable the use of mintty and print the output to this console.
-    echo There is no guarantee that this will work properly.
-    echo You must make sure that you have ssh keep-alive enabled or something similar
-    echo to screen that will allow you to run this script in the background.
+    echo. This will disable the use of mintty and print the output to this console.
+    echo. There is no guarantee that this will work properly.
+    echo. You must make sure that you have ssh keep-alive enabled or something similar
+    echo. to screen that will allow you to run this script in the background.
     echo.
     echo -------------------------------------------------------------------------------
     echo -------------------------------------------------------------------------------
@@ -1566,11 +1594,30 @@ if %noMinttyF%==2 set "noMintty=n"
 if %noMinttyF% GTR 2 GOTO noMintty
 if %deleteINI%==1 echo.noMintty=^%noMinttyF%>>%ini%
 
+rem pkgUpdateTime
+if [0]==[%pkgUpdateTimeINI%] (
+    set pkgUpdateTime=86400
+) else set pkgUpdateTime=%pkgUpdateTimeINI%
+if %deleteINI%==1 echo.pkgUpdateTime=^%pkgUpdateTime%>>%ini%
+
+if %build32%==yes (
+    if %CC%==clang (
+        echo ----------------------------------------------------------------------
+        echo. As of December 18th 2024, msys2 no longer supports the
+        echo. CLANG32 environment. To continue running the suite, either
+        echo. switch to 64-bit (arch=3^), or
+        echo. switch to using gcc as the compiler (CC=2^).
+        echo. This can be done through editing build\media-autobuild_suite.ini.
+        pause
+        exit
+    )
+)
+
 rem ------------------------------------------------------------------
 rem download and install basic msys2 system:
 rem ------------------------------------------------------------------
 cd %build%
-set scripts=media-suite_compile.sh media-suite_helper.sh media-suite_update.sh
+set scripts=media-suite_compile.sh media-suite_deps.sh media-suite_helper.sh media-suite_update.sh
 for %%s in (%scripts%) do (
     if not exist "%build%\%%s" (
         powershell -Command (New-Object System.Net.WebClient^).DownloadFile('"https://github.com/m-ab-s/media-autobuild_suite/raw/master/build/%%s"', '"%%s"' ^)
@@ -1647,7 +1694,11 @@ if not exist %instdir%\mintty.lnk (
     (
         echo.Set Shell = CreateObject("WScript.Shell"^)
         echo.Set link = Shell.CreateShortcut("%instdir%\mintty.lnk"^)
-        echo.link.Arguments = "-full-path -mingw -where .."
+        if %CC%==clang (
+            echo.link.Arguments = "-full-path -clang64 -where .."
+        ) else (
+            echo.link.Arguments = "-full-path -mingw -where .."
+        )
         echo.link.Description = "msys2 shell console"
         echo.link.TargetPath = "%instdir%\msys64\msys2_shell.cmd"
         echo.link.WindowStyle = 1
@@ -1667,11 +1718,11 @@ rem checkFstab
 set "removefstab=no"
 set "fstab=%instdir%\msys64\etc\fstab"
 if exist %fstab%. (
-    findstr build32 %fstab% >nul 2>&1 && set "removefstab=yes"
     findstr trunk %fstab% >nul 2>&1 || set "removefstab=yes"
     for /f "tokens=1 delims= " %%a in ('findstr trunk %fstab%') do if not [%%a]==[%instdir%\] set "removefstab=yes"
     findstr local32 %fstab% >nul 2>&1 && ( if [%build32%]==[no] set "removefstab=yes" ) || if [%build32%]==[yes] set "removefstab=yes"
     findstr local64 %fstab% >nul 2>&1 && ( if [%build64%]==[no] set "removefstab=yes" ) || if [%build64%]==[yes] set "removefstab=yes"
+    findstr clang32 %fstab% >nul 2>&1 && set "removefstab=yes"
 ) else set removefstab=yes
 
 if not [%removefstab%]==[no] (
@@ -1688,6 +1739,7 @@ if not [%removefstab%]==[no] (
         echo.%instdir%\build\ /build ntfs binary,posix=0,noacl,user 0 0
         echo.%instdir%\msys64\mingw32\ /mingw32 ntfs binary,posix=0,noacl,user 0 0
         echo.%instdir%\msys64\mingw64\ /mingw64 ntfs binary,posix=0,noacl,user 0 0
+        echo.%instdir%\msys64\clang64\ /clang64 ntfs binary,posix=0,noacl,user 0 0
         if "%build32%"=="yes" echo.%instdir%\local32\ /local32 ntfs binary,posix=0,noacl,user 0 0
         if "%build64%"=="yes" echo.%instdir%\local64\ /local64 ntfs binary,posix=0,noacl,user 0 0
     )>"%instdir%\msys64\etc\fstab."
@@ -1752,7 +1804,7 @@ for %%i in (%instdir%\msys64\usr\ssl\cert.pem) do if %%~zi==0 call :runBash cert
 rem installmingw
 rem extra package for clang
 if %CC%==clang (
-    set "mingwpackages=%mingwpackages% gcc-compat"
+    set "mingwpackages=%mingwpackages% clang gcc-compat lld"
 ) else (
     set "mingwpackages=%mingwpackages% binutils gcc"
 )
@@ -1791,8 +1843,23 @@ if %updateSuite%==y (
     )>%instdir%\update_suite.sh
 )
 
+rem ------------------------------------------------------------------
+rem write config profiles:
+rem ------------------------------------------------------------------
+
+if %build32%==yes call :writeProfile 32
+if %build64%==yes call :writeProfile 64
+
 rem update
-call :runBash update.log /build/media-suite_update.sh --build32=%build32% --build64=%build64%
+if exist "%instdir%\build\updated.log" (
+    powershell -noprofile -command "exit ([datetimeoffset]::now.tounixtimeseconds() - (get-content %instdir%\build\updated.log) -gt %pkgUpdateTime%)" || set needsupdate=yes
+) else (
+    set needsupdate=yes
+)
+if defined needsupdate (
+    call :runBash update.log /build/media-suite_update.sh --build32=%build32% --build64=%build64% --CC="%CC%"
+    powershell -noprofile -command "[datetimeoffset]::now.tounixtimeseconds()" > %instdir%\build\updated.log
+)
 
 if exist "%build%\update_core" (
     echo.-------------------------------------------------------------------------------
@@ -1801,13 +1868,6 @@ if exist "%build%\update_core" (
     pacman -S --needed --noconfirm --ask=20 --asdeps bash pacman msys2-runtime
     del "%build%\update_core"
 )
-
-rem ------------------------------------------------------------------
-rem write config profiles:
-rem ------------------------------------------------------------------
-
-if %build32%==yes call :writeProfile 32
-if %build64%==yes call :writeProfile 64
 
 mkdir "%instdir%\msys64\home\%USERNAME%\.gnupg" > nul 2>&1
 findstr hkps://keys.openpgp.org "%instdir%\msys64\home\%USERNAME%\.gnupg\gpg.conf" >nul 2>&1 || echo keyserver hkps://keys.openpgp.org >> "%instdir%\msys64\home\%USERNAME%\.gnupg\gpg.conf"
@@ -1844,12 +1904,16 @@ set compileArgs=--cpuCount=%cpuCount% --build32=%build32% --build64=%build64% ^
 --ffmbc=%ffmbc% --curl=%curl% --cyanrip=%cyanrip% --rav1e=%rav1e% --ripgrep=%ripgrep% --dav1d=%dav1d% ^
 --vvc=%vvc% --uvg266=%uvg266% --vvenc=%vvenc% --vvdec=%vvdec% --jq=%jq% --jo=%jo% --dssim=%dssim% ^
 --avs2=%avs2% --dovitool=%dovitool% --hdr10plustool=%hdr10plustool% --timeStamp=%timeStamp% ^
---noMintty=%noMintty% --ccache=%ccache% --svthevc=%svthevc% ^
---svtav1=%svtav1% --svtvp9=%svtvp9% --xvc=%xvc% --vlc=%vlc% --libavif=%libavif% --jpegxl=%jpegxl% ^
+--noMintty=%noMintty% --ccache=%ccache% --svthevc=%svthevc% --svtav1=%svtav1% --svtvp9=%svtvp9% ^
+--xvc=%xvc% --vlc=%vlc% --libavif=%libavif% --jpegxl=%jpegxl% --av1an=%av1an% ^
 --ffmpegPath=%ffmpegPath% --exitearly=%MABS_EXIT_EARLY%
     @REM --autouploadlogs=%autouploadlogs%
     set "noMintty=%noMintty%"
-    if %build64%==yes ( set "MSYSTEM=MINGW64" ) else set "MSYSTEM=MINGW32"
+    if %build64%==yes (
+        if %CC%==clang ( set "MSYSTEM=CLANG64" ) else set "MSYSTEM=MINGW64"
+    ) else (
+        set "MSYSTEM=MINGW32"
+    )
     set "MSYS2_PATH_TYPE=inherit"
     if %noMintty%==y set "PATH=%PATH%"
     set "build=%build%"
@@ -1932,7 +1996,8 @@ goto :EOF
     echo.CFLAGS+=" -march=znver3 -mtune=znver3 -O2 -pipe" # performance related flags
     echo.CFLAGS+=" -D__USE_MINGW_ANSI_STDIO=1" # mingw-w64 specific flags for c99 printf
     echo.CXXFLAGS="${CFLAGS}" # copy CFLAGS to CXXFLAGS
-    echo.LDFLAGS="${CFLAGS} -static-libgcc" # copy CFLAGS to LDFLAGS
+    echo.LDFLAGS="${CFLAGS} -static-libgcc -liconv" # copy CFLAGS to LDFLAGS
+    echo.RUSTFLAGS="-Clink-arg=-liconv"
     echo.case "$CC" in
     echo.*clang^)
     echo.    # clang complains about using static-libstdc++ with C files.
@@ -1947,10 +2012,12 @@ goto :EOF
     echo.;;
     echo.esac
     echo.# CPPFLAGS used to be here, but cmake ignores it, so it's not as useful.
-    echo.export DXSDK_DIR ACLOCAL_PATH PKG_CONFIG PKG_CONFIG_PATH CFLAGS CXXFLAGS LDFLAGS
+    echo.export DXSDK_DIR ACLOCAL_PATH PKG_CONFIG PKG_CONFIG_PATH CFLAGS CXXFLAGS LDFLAGS RUSTFLAGS
     echo.
     echo.export CARGO_HOME="/opt/cargo"
-    echo.export CCACHE_DIR="${LOCALBUILDDIR}/cache"
+    echo.if [[ -z "$CCACHE_DIR" ]]; then
+    echo.    export CCACHE_DIR="${LOCALBUILDDIR}/cache"
+    echo.fi
     echo.
     echo.export PYTHONPATH=
     echo.
@@ -2008,16 +2075,16 @@ goto :EOF
 :getmingw
 setlocal
 set found=0
-set "compilers=%instdir%\msys64\mingw%1\bin\gcc.exe %instdir%\msys64\clang%1\bin\clang.exe"
-for %%i in (%compilers%) do if exist %%i set found=1
+if %CC%==clang (
+    set "compiler=%instdir%\msys64\clang%1\bin\clang.exe"
+) else set "compiler=%instdir%\msys64\mingw%1\bin\gcc.exe"
+if exist %compiler% set found=1
 if %found%==1 GOTO :EOF
 echo.-------------------------------------------------------------------------------
 echo.install %1 bit compiler
 echo.-------------------------------------------------------------------------------
 if %CC%==clang (
-    if "%1"=="32" (
-        set prefix=mingw-w64-clang-i686-
-    ) else set prefix=mingw-w64-clang-x86_64-
+    set prefix=mingw-w64-clang-x86_64-
 ) else (
     if "%1"=="32" (
         set prefix=mingw-w64-i686-
@@ -2033,7 +2100,7 @@ if %CC%==clang (
 )>%build%\mingw.sh
 call :runBash mingw%1.log /build/mingw.sh
 
-for %%i in (%compilers%) do if exist %%i set found=1
+if exist %compiler% set found=1
 if %found%==0 (
     echo -------------------------------------------------------------------------------
     echo.

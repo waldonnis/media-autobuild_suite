@@ -29,9 +29,6 @@ if test -n "$(tput colors)" && test "$(tput colors)" -ge 8; then
 fi
 ncols=72
 
-[[ -f "$LOCALBUILDDIR"/grep.exe ]] &&
-    rm -f "$LOCALBUILDDIR"/{7za,wget,grep}.exe
-
 do_simple_print() {
     local plain=false formatString dateValue newline='\n' OPTION OPTIND
     while getopts ':np' OPTION; do
@@ -236,7 +233,7 @@ vcs_ref_to_hash() (
 #   do_vcs "url#branch|revision|tag|commit=NAME[ folder]" "folder"
 do_vcs() {
     local vcsURL=${1#*::} vcsFolder=$2 vcsCheck=("${_check[@]}")
-    local vcsBranch=${vcsURL#*#} ref=origin/HEAD
+    local vcsBranch=${vcsURL#*#} ref=origin/HEAD commit='' refmsg=''
     local deps=("${_deps[@]}") && unset _deps
     [[ $vcsBranch == "$vcsURL" ]] && unset vcsBranch
     local vcsPotentialFolder=${vcsURL#* }
@@ -247,6 +244,8 @@ do_vcs() {
     : "${vcsFolder:=$(basename "$vcsURL" .git)}"  # else just grab from the url like git normally does
 
     if [[ -n $vcsBranch ]]; then
+        commit=${vcsBranch##*commit=}
+        [[ $vcsBranch == "$commit" ]] && unset commit
         ref=${vcsBranch##*=}
         unset vcsBranch
     fi
@@ -268,9 +267,14 @@ do_vcs() {
     *) ref=$(vcs_ref_to_hash "$vcsURL" "$ref" "$vcsFolder") ;;
     esac
 
+    if [[ -n $commit ]]; then
+        ref=$commit
+        refmsg="with ref $ref"
+    fi
+
     if ! check_valid_vcs "$vcsFolder-git"; then
         rm -rf "$vcsFolder-git"
-        do_print_progress "  Running git clone for $vcsFolder"
+        do_print_progress "  Running git clone for $vcsFolder $refmsg"
         if ! do_mabs_clone "$vcsURL" "$vcsFolder" "$ref"; then
             echo "$vcsFolder git seems to be down"
             echo "Try again later or <Enter> to continue"
@@ -293,7 +297,7 @@ do_vcs() {
     vcs_set_url "$vcsURL"
     log -q git.fetch vcs_fetch
     oldHead=$(vcs_get_merge_base "$ref")
-    do_print_progress "  Running git update for $vcsFolder"
+    do_print_progress "  Running git update for $vcsFolder $refmsg"
     log -q git.reset vcs_reset "$ref"
     newHead=$(vcs_get_current_head "$PWD")
 
@@ -592,7 +596,7 @@ do_strip() {
             [[ ! $file =~ ($nostrip)\.exe$ ]]; then
             cmd+=(--strip-all)
         elif [[ $file =~ \.dll$ ]] ||
-            [[ $file =~ x265(|-numa)\.exe$ ]]; then
+            [[ $file =~ (x265|x265-numa)\.exe$ ]]; then
             cmd+=(--strip-unneeded)
         elif ! disabled debug && [[ $file =~ \.a$ ]]; then
             cmd+=(--strip-debug)
@@ -1336,6 +1340,8 @@ do_cmake() {
         return
     # shellcheck disable=SC2086
     log "cmake" cmake "$root" -G Ninja -DBUILD_SHARED_LIBS=off \
+        -DPython3_EXECUTABLE="${MINGW_PREFIX}/bin/python.exe" \
+        -DCMAKE_EXPORT_COMPILE_COMMANDS=on \
         -DCMAKE_TOOLCHAIN_FILE="$LOCALDESTDIR/etc/toolchain.cmake" \
         -DCMAKE_INSTALL_PREFIX="$LOCALDESTDIR" -DUNIX=on \
         -DCMAKE_BUILD_TYPE=Release $bindir "$@" "${cmake_extras[@]}"
@@ -1402,13 +1408,13 @@ do_rust() {
     log "rust.update" cargo update
     # use this array to pass additional parameters to cargo
     local rust_extras=()
+    [[ $CC =~ clang ]] && local target_suffix="llvm"
     extra_script pre rust
     [[ -f "$(get_first_subdir -f)/do_not_reconfigure" ]] &&
         return
     PKG_CONFIG_ALL_STATIC=true \
-        CC="ccache clang" \
         log "rust.build" cargo build \
-        --target="$CARCH"-pc-windows-gnu \
+        --target="$CARCH"-pc-windows-gnu$target_suffix \
         --jobs="$cpuCount" "${@:---release}" "${rust_extras[@]}"
     extra_script post rust
     unset rust_extras
@@ -1418,14 +1424,14 @@ do_rustinstall() {
     log "rust.update" cargo update
     # use this array to pass additional parameters to cargo
     local rust_extras=()
+    [[ $CC =~ clang ]] && local target_suffix="llvm"
     extra_script pre rust
     [[ -f "$(get_first_subdir -f)/do_not_reconfigure" ]] &&
         return
     PKG_CONFIG_ALL_STATIC=true \
-        CC="ccache clang" \
         PKG_CONFIG="$LOCALDESTDIR/bin/ab-pkg-config" \
         log "rust.install" cargo install \
-        --target="$CARCH"-pc-windows-gnu \
+        --target="$CARCH"-pc-windows-gnu$target_suffix \
         --jobs="$cpuCount" "${@:---path=.}" "${rust_extras[@]}"
     extra_script post rust
     unset rust_extras
@@ -1435,14 +1441,14 @@ do_rustcinstall() {
     log "rust.update" cargo update
     # use this array to pass additional parameters to cargo
     local rust_extras=()
+    [[ $CC =~ clang ]] && local target_suffix="llvm"
     extra_script pre rust
     [[ -f "$(get_first_subdir -f)/do_not_reconfigure" ]] &&
         return
     PKG_CONFIG_ALL_STATIC=true \
-        CC="ccache clang" \
         PKG_CONFIG="$LOCALDESTDIR/bin/ab-pkg-config" \
         log "rust.cinstall" cargo cinstall \
-        --target="$CARCH"-pc-windows-gnu \
+        --target="$CARCH"-pc-windows-gnu$target_suffix \
         --jobs="$cpuCount" --prefix="$LOCALDESTDIR" "$@" "${rust_extras[@]}"
     extra_script post rust
     unset rust_extras
@@ -1651,7 +1657,7 @@ do_hide_pacman_sharedlibs() {
     local packages="$1"
     local revert="$2"
     local files
-    files="$(pacman -Qql "$packages" 2> /dev/null | /usr/bin/grep .dll.a)"
+    files="$(pacman -Qql "$packages" 2> /dev/null | grep .dll.a)"
 
     for file in $files; do
         if [[ -f "${file%*.dll.a}.a" ]]; then
@@ -1669,7 +1675,7 @@ do_hide_pacman_sharedlibs() {
 do_hide_all_sharedlibs() {
     local dryrun="${dry:-n}"
     local files
-    files="$(find /{mingw,clang}{32,64}/lib /{mingw,clang}{32/i686,64/x86_64}-w64-mingw32/lib -name "*.dll.a" 2> /dev/null)"
+    files="$(find /{mingw{32,64},clang64}/lib /{mingw{32/i686,64/x86_64},clang64/x86_64}-w64-mingw32/lib -name "*.dll.a" 2> /dev/null)"
     local tomove=()
     for file in $files; do
         [[ -f ${file%*.dll.a}.a ]] && tomove+=("$file")
@@ -1686,7 +1692,7 @@ do_hide_all_sharedlibs() {
 do_unhide_all_sharedlibs() {
     local dryrun="${dry:-n}"
     local files
-    files="$(find /{mingw,clang}{32,64}/lib /{mingw,clang}{32/i686,64/x86_64}-w64-mingw32/lib -name "*.dll.a" 2> /dev/null)"
+    files="$(find /{mingw{32,64},clang64}/lib /{mingw{32/i686,64/x86_64},clang64/x86_64}-w64-mingw32/lib -name "*.dll.a.dyn" 2> /dev/null)"
     local tomove=()
     local todelete=()
     for file in $files; do
@@ -1749,7 +1755,6 @@ do_pacman_install() (
             --overwrite "/mingw64/*" \
             --overwrite "/mingw32/*" \
             --overwrite "/clang64/*" \
-            --overwrite "/clang32/*" \
             "$prefix$pkg" > /dev/null 2>&1; then
             pacman -D --asexplicit "$prefix$pkg" > /dev/null 2>&1
             echo "$pkg" >> $file
@@ -1857,8 +1862,8 @@ get_last_version() {
     local filter="$2"
     local version="$3"
     local ret
-    ret="$(/usr/bin/grep -E "$filter" <<< "$filelist" | sort -V | tail -1)"
-    [[ -n $version ]] && ret="$(/usr/bin/grep -oP "$version" <<< "$ret")"
+    ret="$(grep -E "$filter" <<< "$filelist" | sort -V | tail -1)"
+    [[ -n $version ]] && ret="$(grep -oP "$version" <<< "$ret")"
     echo "$ret"
 }
 
@@ -1990,7 +1995,7 @@ get_api_version() {
     local line="$2"
     local column="$3"
     [[ ! -f $header ]] && printf '' && return
-    /usr/bin/grep "${line:-VERSION}" "$header" | awk '{ print $c }' c="${column:-3}" | sed 's|"||g'
+    grep "${line:-VERSION}" "$header" | awk '{ print $c }' c="${column:-3}" | sed 's|"||g'
 }
 
 hide_files() {
@@ -2215,76 +2220,45 @@ create_cmake_toolchain() {
         printf '%s\n' "${toolchain_file[@]}" > "$LOCALDESTDIR"/etc/toolchain.cmake
 }
 
-get_signature() {
-    # get_signature 96865171 0F3BE490
-    # adds keys to gpg keychain for verifying
-    for keyserver in keys.openpgp.org pool.sks-keyservers.net keyserver.ubuntu.com pgp.mit.edu; do
-        gpg --keyserver "$keyserver" --receive-keys "$@" && break
-    done > /dev/null 2>&1
+do_fix_pkgconfig_abspaths() {
+    # in case the root was moved, this fixes windows abspaths
+    mkdir -p "$LOCALDESTDIR/lib/pkgconfig"
+    # pkgconfig keys to find the wrong abspaths from
+    local _keys="(prefix|exec_prefix|libdir|includedir)"
+    # current abspath root
+    local _root
+    _root=$(cygpath -m "$LOCALDESTDIR")
+    # find .pc files with Windows abspaths
+    grep -ElZR "${_keys}=[^/$].*" "$LOCALDESTDIR"/lib/pkgconfig | \
+        # find those with a different abspath than the current
+        xargs -0r grep -LZ "$_root" | \
+        # replace with current abspath
+        xargs -0r sed -ri "s;${_keys}=.*$LOCALDESTDIR;\1=$_root;g"
 }
 
-check_signature() {
-    # check_signature -k 96865171 gnutls-3.6.8.tar.xz.sig gnutls-3.6.8.tar.xz
-    # check_signature -k 1528635D8053A57F77D1E08630A59377A7763BE6 http://libsdl.org/release/SDL2-2.0.10.tar.gz.sig SDL2-2.0.10.tar.gz
-    # run in the same directory as the files. Works with .sig and some .asc
-    # file needs to start with -----BEGIN PGP SIGNATURE-----
-    local key=()
-    while true; do
-        case $1 in
-        -k) key+=("$2") && shift 2 ;; # keys to retrieve using get_signature
-        --)
-            shift
-            break
-            ;;
-        *) break ;;
-        esac
-    done
-    local sigFile=$1
-    shift
+do_clean_old_builds() {
+    local _old_libs=(j{config,error,morecfg,peglib}.h
+        lib{jpeg,nettle,gnurx,regex}.{,l}a
+        lib{opencore-amr{nb,wb},twolame,theora{,enc,dec},caca,magic,uchardet}.{,l}a
+        libSDL{,main}.{,l}a libopen{jpwl,mj2,jp2}.{a,pc}
+        include/{nettle,opencore-amr{nb,wb},theora,cdio,SDL,openjpeg-2.{1,2},luajit-2.0,uchardet,wels}
+        regex.h magic.h
+        {nettle,vo-aacenc,sdl,uchardet}.pc
+        {opencore-amr{nb,wb},twolame,theora{,enc,dec},caca,dcadec,libEGL,openh264}.pc
+        libcdio_{cdda,paranoia}.{{,l}a,pc}
+        twolame.h bin-audio/{twolame,cd-paranoia}.exe
+        bin-global/{{file,uchardet}.exe,sdl-config,luajit-2.0.4.exe}
+        libebur128.a ebur128.h
+        libopenh264.a
+        liburiparser.{{,l}a,pc}
+        libchromaprint.{a,pc} chromaprint.h
+        bin-global/libgcrypt-config libgcrypt.a gcrypt.h
+        lib/libgcrypt.def bin-global/{dumpsexp,hmac256,mpicalc}.exe
+        crossc.{h,pc} libcrossc.a
+        include/onig{uruma,gnu,posix}.h libonig.a oniguruma.pc
+    )
 
-    # Get name of sig file
-    local sigFileName=${sigFile##*/}
-    sigFileName=${sigFileName:-"$(/usr/bin/curl -sI "$sigFile" | grep -Eo 'filename=.*$' | sed 's/filename=//')"}
-    [[ -z $sigFileName ]] && echo "Sig file not set" && return 1
-
-    # Download sig file if url/cp file if local file
-    if ! do_wget -c -r -q "$sigFile" "$sigFileName" && [[ -f $sigFile ]]; then
-        sigFile="$(
-            cd_safe "$(dirname "$sigFile")"
-            printf '%s' "$(pwd -P)" '/' "$(basename -- "$sigFile")"
-        )"
-        [[ ${sigFile%/*} != "$PWD" ]] && cp -f "$sigFile" "$sigFileName" > /dev/null 2>&1
-    fi
-
-    # Retrive keys
-    [[ -n ${key[0]} ]] && get_signature "${key[@]}"
-
-    # Verify file is correct
-    # $? 1 Bad sig or file integrity compromised
-    # $? 2 no-pub-key or no file
-    gpg --auto-key-retrieve --keyserver hkps://hkps.pool.sks-keyservers.net --verify "$sigFileName" "$@" > /dev/null 2>&1
-    case $? in
-    1) do_exit_prompt "Failed to verify integrity of ${sigFileName%%.sig}" ;;
-    2) do_exit_prompt "Failed to find gpg key or no file found for ${sigFileName%%.sig}" ;;
-    esac
-}
-
-do_jq() {
-    local jq_file="$jq_file" output_raw_string=true
-    # Detect if in pipe, useful for curling github api
-    if [[ ! -t 0 ]]; then
-        jq_file=/dev/stdin
-    elif [[ -f $1 ]]; then
-        jq_file="$1" && shift
-    fi
-    for a in "$@"; do
-        grep -q -- ^- <<< "$a" && output_raw_string=false
-    done
-    if $output_raw_string; then
-        jq -r "$*" < "$jq_file"
-    else
-        jq "$@" < "$jq_file"
-    fi
+    do_uninstall q all "${_old_libs[@]}"
 }
 
 grep_or_sed() {
@@ -2296,8 +2270,8 @@ grep_or_sed() {
     local sed_files=("$grep_file")
     [[ -n $1 ]] && sed_files=("$@")
 
-    /usr/bin/grep -q -- "$grep_re" "$grep_file" ||
-        /usr/bin/sed -ri -- "$sed_re" "${sed_files[@]}"
+    grep -q -- "$grep_re" "$grep_file" ||
+        sed -ri -- "$sed_re" "${sed_files[@]}"
 }
 
 grep_and_sed() {
@@ -2309,8 +2283,8 @@ grep_and_sed() {
     local sed_files=("$grep_file")
     [[ -n $1 ]] && sed_files=("$@")
 
-    /usr/bin/grep -q -- "$grep_re" "$grep_file" &&
-        /usr/bin/sed -ri -- "$sed_re" "${sed_files[@]}"
+    grep -q -- "$grep_re" "$grep_file" &&
+        sed -ri -- "$sed_re" "${sed_files[@]}"
 }
 
 fix_cmake_crap_exports() {
@@ -2357,11 +2331,13 @@ verify_cuda_deps() {
     if enabled libnpp && [[ ! -f "$CUDA_PATH/lib/x64/nppc.lib" ]]; then
         do_removeOption --enable-libnpp
     fi
-    if ! disabled cuda-llvm && do_pacman_install clang; then
+    if enabled cuda-llvm && do_pacman_install clang; then
         do_removeOption --enable-cuda-nvcc
     else
         do_removeOption --enable-cuda-llvm
-        do_addOption --disable-cuda-llvm
+        if ! disabled autodetect; then
+            do_addOption --disable-cuda-llvm
+        fi
     fi
     if enabled cuda-nvcc; then
         if ! get_cl_path; then
