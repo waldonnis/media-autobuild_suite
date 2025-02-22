@@ -1254,7 +1254,6 @@ if [[ $libavif = y ]]; then
     [[ $standalone = y ]] && _check+=(bin-video/avif{enc,dec}.exe)
     if { pc_exists "aom" || pc_exists "dav1d" || pc_exists "rav1e" || pc_exists "SvtAv1Enc"; } &&
         do_vcs "$SOURCE_REPO_LIBAVIF"; then
-        do_patch "https://gitlab.com/AOMediaCodec/SVT-AV1/-/raw/master/.gitlab/workflows/linux/libavif_api_job_fix.patch"
         # chop off any .lib suffixes that is attached to a library name
         grep_and_sed '\.lib' CMakeLists.txt 's|(\w)\.lib\b|\1|g'
         do_uninstall "${_check[@]}"
@@ -2338,7 +2337,7 @@ if [[ $ffmpeg != no ]]; then
                 do_removeOption --enable-libsvtvp9
         fi
         if enabled libsvtav1; then
-            do_patch "https://gitlab.com/AOMediaCodec/SVT-AV1/-/raw/master/.gitlab/workflows/linux/ffmpeg_n7_fix.patch"
+            do_patch "https://code.ffmpeg.org/FFmpeg/FFmpeg/pulls/12.patch" am
         fi
 
         enabled libsvthevc || do_removeOption FFMPEG_OPTS_SHARED "--enable-libsvthevc"
