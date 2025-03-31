@@ -194,7 +194,7 @@ fi
 if [[ $gifski != n ]]; then
     if [[ $gifski = video ]]; then
         _check=("$LOCALDESTDIR"/opt/gifskiffmpeg/lib/pkgconfig/lib{av{codec,device,filter,format,util},swscale}.pc)
-        if flavor=gifski do_vcs "${ffmpegPath%%#*}#branch=release/6.1"; then
+        if flavor=gifski do_vcs "https://git.ffmpeg.org/ffmpeg.git#branch=release/6.1"; then
             do_uninstall "$LOCALDESTDIR"/opt/gifskiffmpeg
             [[ -f config.mak ]] && log "distclean" make distclean
             create_build_dir gifski
@@ -309,7 +309,7 @@ if [[ $mplayer = y || $mpv = y ]] ||
         do_pacman_install gperf
         extracommands=()
         [[ $standalone = y ]] || extracommands+=(-Dtools=disabled)
-        [[ $ffmpeg = sharedlibs ]] && extracommands+=(--default-both-library=both)
+        [[ $ffmpeg = sharedlibs ]] && extracommands+=(--default-both-libraries=both)
         do_mesoninstall global -Ddoc=disabled -Dtests=disabled "${extracommands[@]}"
         do_checkIfExist
         unset extracommands
@@ -1978,7 +1978,7 @@ if [[ $av1an != n ]]; then
     [[ $av1an = shared ]] && av1an_bindir="bin-video/av1an/bin" && av1an_ffmpeg_prefix="bin-video/av1an"
 
     _check=("$LOCALDESTDIR"/"$av1an_ffmpeg_prefix"/lib/pkgconfig/lib{av{codec,device,filter,format,util},swscale}.pc)
-    if flavor=av1an do_vcs "${ffmpegPath%%#*}#branch=release/7.1"; then
+    if flavor=av1an do_vcs "https://git.ffmpeg.org/ffmpeg.git#branch=release/7.1"; then
         do_uninstall "$LOCALDESTDIR"/"$av1an_ffmpeg_prefix"
         [[ -f config.mak ]] && log "distclean" make distclean
         local av1an_ffmpeg_opts=("--enable-static" "--disable-shared")
@@ -2362,6 +2362,8 @@ if [[ $ffmpeg != no ]]; then
         enabled libsvthevc || do_removeOption FFMPEG_OPTS_SHARED "--enable-libsvthevc"
         enabled libsvtav1 || do_removeOption FFMPEG_OPTS_SHARED "--enable-libsvtav1"
         enabled libsvtvp9 || do_removeOption FFMPEG_OPTS_SHARED "--enable-libsvtvp9"
+
+        enabled libvvdec && grep_and_sed FF_PROFILE libavcodec/libvvdec.c 's/FF_PROFILE/AV_PROFILE/g'
 
         if enabled openal &&
             pc_exists "openal"; then
