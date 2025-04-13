@@ -39,4 +39,7 @@ $RECYCLE.BIN/
 .DS_Store
 
 # Ignore extra files
-*_extra.sh
+#*_extra.sh
+
+# Include local-patches
+!build/local_patches
