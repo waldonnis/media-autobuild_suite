@@ -5,7 +5,5 @@ _post_vcs(){
     # version fails after my patches
     patch -p1 -i "$LOCALBUILDDIR/local_patches/x265_lto_enable.patch"
     patch -p1 -i "$LOCALBUILDDIR/local_patches/x265_rebased-library-paths-patch.patch"
-    # Likely temporary - the asm conditional wasn't correct since it wouldn't be defined unless enabled
-    patch -p1 -i "$LOCALBUILDDIR/local_patches/x265_enable-cet-fix.patch"
 }
 
