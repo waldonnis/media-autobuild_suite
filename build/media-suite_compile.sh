@@ -409,14 +409,12 @@ if [[ $mplayer = y || $mpv = y ]] ||
         extracommands=()
         [[ $standalone = y ]] || extracommands+=(-Dtools=disabled)
         [[ $ffmpeg = sharedlibs ]] && extracommands+=(--default-both-libraries=both)
-        do_mesoninstall global -Ddoc=disabled -Dtests=disabled "${extracommands[@]}"
+        do_mesoninstall global -D{doc,tests}=disabled -Diconv=enabled "${extracommands[@]}"
         do_checkIfExist
         unset extracommands
     fi
     # Prevents ffmpeg from trying to link to a broken libfontconfig.dll.a
     [[ $ffmpeg = sharedlibs ]] || do_uninstall bin-global/libfontconfig-1.dll libfontconfig.dll.a
-
-    grep_or_sed iconv "$LOCALDESTDIR/lib/pkgconfig/fontconfig.pc" 's/Libs:.*/& -liconv/'
 
     _deps=(libfreetype.a)
     _check=(libharfbuzz.a harfbuzz.pc)
@@ -927,7 +925,7 @@ _check=(bin-audio/ogg{enc,dec}.exe)
 _deps=(ogg.pc vorbis.pc)
 if [[ $standalone = y ]] && enabled libvorbis &&
     do_vcs "$SOURCE_REPO_VORBIS_TOOLS"; then
-    do_patch "https://github.com/xiph/vorbis-tools/pull/39.patch" am
+    do_patch "https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/vorbis-tools/0001-utf8-add-empty-convert_free_charset-for-Windows.patch" am
     do_autoreconf
     do_uninstall "${_check[@]}"
     extracommands=()
@@ -1163,7 +1161,8 @@ if { { [[ $ffmpeg != no ]] &&
     do_vcs "$SOURCE_REPO_OPENAL"; then
     do_uninstall "${_check[@]}"
     do_patch "https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/openal-soft/0001-CMake-Fix-issues-for-mingw-w64.patch" am
-    do_cmakeinstall -DLIBTYPE=STATIC -DALSOFT_UTILS=OFF -DALSOFT_EXAMPLES=OFF
+    CC=${CC/ccache /}.bat CXX=${CXX/ccache /}.bat \
+        do_cmakeinstall -DLIBTYPE=STATIC -DALSOFT_UTILS=OFF -DALSOFT_EXAMPLES=OFF
     sed -i 's/Libs.private.*/& -luuid -lole32/' "$LOCALDESTDIR/lib/pkgconfig/openal.pc" # uuid is for FOLDERID_* stuff
     do_checkIfExist
     unset _mingw_patches
@@ -2923,6 +2922,7 @@ if [[ $mpv != n ]] && pc_exists libavcodec libavformat libswscale libavfilter; t
 
         replace="LIBPATH_lib\1 = ['${LOCALDESTDIR}/lib','${MINGW_PREFIX}/lib']"
         sed -r -i "s:LIBPATH_lib(ass|av(|device|filter)) = .*:$replace:g" ./build/c4che/_cache.py	
+        grep_and_sed FF_PROFILE audio/decode/ad_spdif.c 's/FF_PROFILE/AV_PROFILE/g'
 
         extra_script pre build
         WAF_NO_PREFORK=1 \
