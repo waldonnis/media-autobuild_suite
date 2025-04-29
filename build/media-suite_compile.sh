@@ -437,7 +437,7 @@ if [[ $mplayer = y || $mpv = y ]] ||
         extracommands=("-Ddocs=false" "-Dtests=false")
         [[ $standalone = n ]] && extracommands+=("-Dbin=false")
         [[ $ffmpeg = sharedlibs ]] && extracommands+=(--default-library=both)
-        do_mesoninstall video "${extracommands[@]}"
+        CFLAGS+=" -D__GNU_LIBRARY__ " do_mesoninstall video "${extracommands[@]}"
         do_checkIfExist
         unset extracommands
     fi
@@ -925,11 +925,11 @@ _deps=(ogg.pc vorbis.pc)
 if [[ $standalone = y ]] && enabled libvorbis &&
     do_vcs "$SOURCE_REPO_VORBIS_TOOLS"; then
     do_patch "https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/vorbis-tools/0001-utf8-add-empty-convert_free_charset-for-Windows.patch" am
-    do_autoreconf
+    CFLAGS+=" -D__GNU_LIBRARY__ " do_autoreconf
     do_uninstall "${_check[@]}"
     extracommands=()
     enabled libspeex || extracommands+=(--without-speex)
-    do_separate_conf --disable-{ogg123,vorbiscomment,vcut,ogginfo} \
+    CFLAGS+=" -D__GNU_LIBRARY__ " do_separate_conf --disable-{ogg123,vorbiscomment,vcut,ogginfo} \
         --with-lib{iconv,intl}-prefix="$MINGW_PREFIX" "${extracommands[@]}"
     do_make
     do_install oggenc/oggenc.exe oggdec/oggdec.exe bin-audio/
@@ -1139,8 +1139,7 @@ fi
 _check=(shine/layer3.h libshine.{,l}a shine.pc)
 [[ $standalone = y ]] && _check+=(bin-audio/shineenc.exe)
 if enabled libshine && do_pkgConfig "shine = 3.1.1" &&
-    do_wget -h 58e61e70128cf73f88635db495bfc17f0dde3ce9c9ac070d505a0cd75b93d384 \
-        "https://github.com/toots/shine/releases/download/3.1.1/shine-3.1.1.tar.gz"; then
+    do_vcs "$SOURCE_REPO_SHINE"; then
     do_uninstall "${_check[@]}"
     [[ $standalone = n ]] && sed -i '/bin_PROGRAMS/,+4d' Makefile.am
     # fix out-of-root build
