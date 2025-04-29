@@ -95,6 +95,7 @@ SOURCE_REPO_RIPGREP=https://github.com/BurntSushi/ripgrep.git
 SOURCE_REPO_RUBBERBAND=https://github.com/m-ab-s/rubberband.git
 SOURCE_REPO_SDL2=https://github.com/libsdl-org/SDL.git#SDL2
 SOURCE_REPO_SHADERC=https://github.com/google/shaderc.git
+SOURCE_REPO_SHINE=https://github.com/toots/shine.git
 SOURCE_REPO_SNDFILE=https://github.com/libsndfile/libsndfile.git
 SOURCE_REPO_SOX=https://git.code.sf.net/p/sox/code
 SOURCE_REPO_SPEEX=https://github.com/xiph/speex.git
