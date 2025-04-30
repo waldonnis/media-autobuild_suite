@@ -437,7 +437,7 @@ if [[ $mplayer = y || $mpv = y ]] ||
         extracommands=("-Ddocs=false" "-Dtests=false")
         [[ $standalone = n ]] && extracommands+=("-Dbin=false")
         [[ $ffmpeg = sharedlibs ]] && extracommands+=(--default-library=both)
-        CFLAGS+=" -D__GNU_LIBRARY__ " do_mesoninstall video "${extracommands[@]}"
+        CFLAGS+=" -std=gnu17 " do_mesoninstall video "${extracommands[@]}"
         do_checkIfExist
         unset extracommands
     fi
@@ -925,11 +925,11 @@ _deps=(ogg.pc vorbis.pc)
 if [[ $standalone = y ]] && enabled libvorbis &&
     do_vcs "$SOURCE_REPO_VORBIS_TOOLS"; then
     do_patch "https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/vorbis-tools/0001-utf8-add-empty-convert_free_charset-for-Windows.patch" am
-    CFLAGS+=" -D__GNU_LIBRARY__ " do_autoreconf
+    CFLAGS+=" -std=gnu17 " do_autoreconf
     do_uninstall "${_check[@]}"
     extracommands=()
     enabled libspeex || extracommands+=(--without-speex)
-    CFLAGS+=" -D__GNU_LIBRARY__ " do_separate_conf --disable-{ogg123,vorbiscomment,vcut,ogginfo} \
+    CFLAGS+=" -std=gnu17 " do_separate_conf --disable-{ogg123,vorbiscomment,vcut,ogginfo} \
         --with-lib{iconv,intl}-prefix="$MINGW_PREFIX" "${extracommands[@]}"
     do_make
     do_install oggenc/oggenc.exe oggdec/oggdec.exe bin-audio/
@@ -1948,7 +1948,7 @@ if enabled libxvid && [[ $standalone = y ]] &&
     do_uninstall "${_check[@]}"
     cd_safe xvidcore/build/generic
     log "bootstrap" ./bootstrap.sh
-    do_configure
+    CFLAGS+=" -std=gnu17 " do_configure
     do_make
     do_install ../../src/xvid.h include/
     do_install '=build/libxvidcore.a' libxvidcore.a
