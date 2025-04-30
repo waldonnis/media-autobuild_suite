@@ -1852,6 +1852,7 @@ _check=(x265{,_config}.h libx265.a x265.pc)
 [[ $standalone = y || $av1an != n ]] && _check+=(bin-video/x265.exe)
 if [[ ! $x265 = n ]] && do_vcs "$SOURCE_REPO_X265"; then
     grep_and_sed CMAKE_CXX_IMPLICIT_LINK_LIBRARIES source/CMakeLists.txt 's|\$\{CMAKE_CXX_IMPLICIT_LINK_LIBRARIES\}||g'
+    grep_or_sed cstdint source/dynamicHDR10/json11/json11.cpp "/cstdlib/ i\#include <cstdint>"
     do_uninstall libx265{_main10,_main12}.a bin-video/libx265_main{10,12}.dll "${_check[@]}"
     [[ $bits = 32bit ]] && assembly=-DENABLE_ASSEMBLY=OFF
     [[ $x265 = d ]] && xpsupport=-DWINXP_SUPPORT=ON
@@ -3229,7 +3230,9 @@ _check=(bin-video/ffmbc.exe)
 if [[ $ffmbc = y ]] && do_vcs "$SOURCE_REPO_FFMBC"; then
     _notrequired=true
     create_build_dir
-    log configure ../configure --target-os=mingw32 --enable-gpl \
+    # Too many errors with GCC 15 due to really old code.
+    CFLAGS+=" -Wno-error=incompatible-pointer-types" \
+        log configure ../configure --target-os=mingw32 --enable-gpl \
         --disable-{dxva2,ffprobe} --extra-cflags=-DNO_DSHOW_STRSAFE \
         --cc="$CC" --ld="$CXX"
     do_make
