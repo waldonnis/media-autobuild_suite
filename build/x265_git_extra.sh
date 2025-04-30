@@ -5,5 +5,6 @@ _post_vcs(){
     # version fails after my patches
     patch -p1 -i "$LOCALBUILDDIR/local_patches/x265_lto_enable.patch"
     patch -p1 -i "$LOCALBUILDDIR/local_patches/x265_rebased-library-paths-patch.patch"
+    patch -p1 -i "$LOCALBUILDDIR/local_patches/x265_gcc-15-fix.patch"
 }
 
