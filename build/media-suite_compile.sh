@@ -925,7 +925,7 @@ _deps=(ogg.pc vorbis.pc)
 if [[ $standalone = y ]] && enabled libvorbis &&
     do_vcs "$SOURCE_REPO_VORBIS_TOOLS"; then
     do_patch "https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/vorbis-tools/0001-utf8-add-empty-convert_free_charset-for-Windows.patch" am
-    CFLAGS+=" -std=gnu17 " do_autoreconf
+    do_autoreconf
     do_uninstall "${_check[@]}"
     extracommands=()
     enabled libspeex || extracommands+=(--without-speex)
