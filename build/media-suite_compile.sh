@@ -2848,6 +2848,8 @@ if [[ $mpv != n ]] && pc_exists libavcodec libavformat libswscale libavfilter; t
         [[ -f mpv_extra.sh ]] && source mpv_extra.sh
 
         mapfile -t MPV_ARGS < <(mpv_build_args)
+        MPV_ARGS+=(-Dc_args="-I$(cygpath -sm "$CUDA_PATH")/include")
+        MPV_ARGS+=(-Dc_link_args="-L$(cygpath -sm "$CUDA_PATH")/lib/x64")
         do_mesoninstall video "${MPV_ARGS[@]}"
         unset MPV_ARGS
         hide_conflicting_libs -R
