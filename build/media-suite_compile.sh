@@ -2170,6 +2170,7 @@ if [[ $bits = 64bit && $vvenc = y ]] ||
     do_uninstall include/vvenc lib/cmake/vvenc "${_check[@]}"
     do_cmakeinstall video -DVVENC_ENABLE_LINK_TIME_OPT=ON -DVVENC_INSTALL_FULLFEATURE_APP=ON -DVVENC_ENABLE_THIRDPARTY_JSON=SYSTEM \
         -DVVENC_OPT_TARGET_ARCH=znver3
+#        -DVVENC_OPT_TARGET_ARCH=znver5
     do_checkIfExist
 else
     pc_exists libvvenc || do_removeOption "--enable-libvvenc"
@@ -2187,6 +2188,7 @@ if [[ $bits = 64bit && $vvdec = y ]] ||
     do_uninstall include/vvdec lib/cmake/vvdec "${_check[@]}"
     do_cmakeinstall video -DVVDEC_ENABLE_LINK_TIME_OPT=ON -DVVDEC_INSTALL_VVDECAPP=ON \
         -DVVDEC_OPT_TARGET_ARCH=znver3
+#        -DVVDEC_OPT_TARGET_ARCH=znver5
     do_checkIfExist
 else
     pc_exists libvvdec || do_removeOption "--enable-libvvdec"
