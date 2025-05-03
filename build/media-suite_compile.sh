@@ -438,7 +438,7 @@ if [[ $mplayer = y || $mpv = y ]] ||
         extracommands=("-Ddocs=false" "-Dtests=false")
         [[ $standalone = n ]] && extracommands+=("-Dbin=false")
         [[ $ffmpeg = sharedlibs ]] && extracommands+=(--default-library=both)
-        CFLAGS+=" -std=gnu17 " do_mesoninstall video "${extracommands[@]}"
+        do_mesoninstall video "${extracommands[@]}"
         do_checkIfExist
         unset extracommands
     fi
