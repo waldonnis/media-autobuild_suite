@@ -305,7 +305,7 @@ if [[ $gifski != n ]]; then
                 --prefix="$LOCALDESTDIR/opt/gifskiffmpeg" \
                 --enable-static --disable-shared --disable-programs \
                 --disable-autodetect --disable-everything \
-                --disable-{debug,doc,network,postproc,protocols} \
+                --disable-{debug,doc,network,protocols} \
                 --enable-{decoders,demuxers} \
                 --enable-filter=format,fps,scale --enable-protocol=file \
                 --disable-bsf=evc_frame_merge,media100_to_mjpegb,vp9_superframe_split \
@@ -489,6 +489,7 @@ if enabled_any gnutls librtmp || [[ $rtmpdump = y || $curl = gnutls ]]; then
         "https://www.gnupg.org/ftp/gcrypt/gnutls/v${_gnutls_ver%.*}/gnutls-${_gnutls_ver}.tar.xz"; then
         do_uninstall include/gnutls "${_check[@]}"
         grep_or_sed crypt32 lib/gnutls.pc.in 's/Libs.private.*/& -lcrypt32/'
+        grep_and_sed tests src/gl/Makefile.am 's|(SUBDIRS.*) tests|\1|'
         CFLAGS="-Wno-int-conversion" \
             do_separate_confmakeinstall \
             --disable-{cxx,doc,tools,tests,nls,rpath,libdane,guile,gcc-warnings} \
@@ -674,16 +675,16 @@ if [[ $jpegxl = y ]] || { [[ $ffmpeg != no ]] && enabled libjxl; }; then
     do_pacman_install brotli lcms2
     _deps=(libgflags.a)
     _check=(libjxl{{,_threads}.a,.pc} jxl/decode.h)
-    [[ $jpegxl = y ]] && _check+=(bin-global/{{c,d}jxl,{c,d}jpegli,jxlinfo}.exe)
+    [[ $jpegxl = y ]] && _check+=(bin-global/{{c,d}jxl,jxlinfo}.exe)
     if do_vcs "$SOURCE_REPO_LIBJXL"; then
         do_git_submodule
         do_patch "https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/libjxl/0001-brotli-link-enc-before-common.patch" am
-        do_uninstall "${_check[@]}" include/jxl
+        do_uninstall "${_check[@]}" include/jxl bin-global/cjpegli.exe bin-global/djpegli.exe 
         do_pacman_install asciidoc
         extracommands=()
         [[ $jpegxl = y ]] || extracommands=("-DJPEGXL_ENABLE_TOOLS=OFF")
         CXXFLAGS+=" -DJXL_CMS_STATIC_DEFINE -DJXL_STATIC_DEFINE -DJXL_THREADS_STATIC_DEFINE" \
-            do_cmakeinstall global -D{BUILD_TESTING,JPEGXL_ENABLE_{BENCHMARK,DOXYGEN,MANPAGES,OPENEXR,SKCMS,EXAMPLES}}=OFF \
+            do_cmakeinstall global -D{BUILD_TESTING,JPEGXL_ENABLE_{BENCHMARK,DOXYGEN,MANPAGES,OPENEXR,SKCMS,EXAMPLES,JPEGLI}}=OFF \
             -DJPEGXL_{FORCE_SYSTEM_{BROTLI,LCMS2},STATIC}=ON "${extracommands[@]}"
         do_checkIfExist
         unset extracommands
@@ -926,6 +927,7 @@ _deps=(ogg.pc vorbis.pc)
 if [[ $standalone = y ]] && enabled libvorbis &&
     do_vcs "$SOURCE_REPO_VORBIS_TOOLS"; then
     do_patch "https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/vorbis-tools/0001-utf8-add-empty-convert_free_charset-for-Windows.patch" am
+    do_patch "https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/vorbis-tools/0002-getopt-just-remove-it.patch" am
     do_autoreconf
     do_uninstall "${_check[@]}"
     extracommands=()
@@ -1139,8 +1141,7 @@ fi
 
 _check=(shine/layer3.h libshine.{,l}a shine.pc)
 [[ $standalone = y ]] && _check+=(bin-audio/shineenc.exe)
-if enabled libshine && do_pkgConfig "shine = 3.1.1" &&
-    do_vcs "$SOURCE_REPO_SHINE"; then
+if enabled libshine && do_vcs "$SOURCE_REPO_SHINE"; then
     do_uninstall "${_check[@]}"
     [[ $standalone = n ]] && sed -i '/bin_PROGRAMS/,+4d' Makefile.am
     # fix out-of-root build
@@ -1224,6 +1225,9 @@ if { enabled libvpx || [[ $vpx = y ]]; } && do_vcs "$SOURCE_REPO_VPX" vpx; then
     [[ $standalone = y || $av1an != n ]] && _check+=(bin-video/vpxdec.exe) ||
         extracommands+=(--disable-{examples,webm-io,libyuv,postproc})
     do_uninstall include/vpx "${_check[@]}"
+    # Work around for semaphore.h not having struct _timespec64 info
+    grep_or_sed sys/timeb.h vp8/common/threading.h \
+        '/<semaphore.h>/ i\#include <sys/timeb.h>'
     create_build_dir
     [[ $bits = 32bit ]] && arch=x86 || arch=x86_64
     [[ $ffmpeg = sharedlibs ]] || extracommands+=(--enable-{vp9-postproc,vp9-highbitdepth})
@@ -1731,6 +1735,7 @@ fi
 _check=(xvc.pc xvc{enc,dec}.h libxvc{enc,dec}.a bin-video/xvc{enc,dec}.exe)
 if [[ $xvc == y ]] &&
     do_vcs "$SOURCE_REPO_XVC"; then
+    do_patch "https://github.com/divideon/xvc/compare/master...1480c1:xvc:stdint.patch" am
     do_uninstall "${_check[@]}"
     do_cmakeinstall video -DBUILD_TESTS=OFF -DENABLE_ASSERTIONS=OFF
     do_checkIfExist
@@ -1946,6 +1951,7 @@ if enabled libxvid && [[ $standalone = y ]] &&
     do_vcs "$SOURCE_REPO_XVID"; then
     do_pacman_install yasm
     do_patch "https://github.com/m-ab-s/xvid/compare/lighde.patch" am
+    do_patch "https://github.com/m-ab-s/xvid/compare/mabs.patch" am
     do_pacman_remove xvidcore
     do_uninstall "${_check[@]}"
     cd_safe xvidcore/build/generic
@@ -2089,7 +2095,7 @@ if [[ $av1an != n ]]; then
         config_path=.. do_configure "${FFMPEG_BASE_OPTS[@]}" \
             --prefix="$LOCALDESTDIR/$av1an_ffmpeg_prefix" \
             --disable-autodetect --disable-everything \
-            --disable-{debug,doc,postproc,network} \
+            --disable-{debug,doc,network} \
             --enable-{decoders,demuxers,protocols} \
             "${av1an_ffmpeg_opts[@]}"
         do_make && do_makeinstall
@@ -2246,9 +2252,10 @@ if { { [[ $ffmpeg != no ]] && enabled_any vulkan libplacebo; } ||
     #do_patch "$_mabs/0002-loader-CMake-related-static-hacks.patch" am
     #do_patch "$_mabs/0003-loader-Re-add-private-libs-to-pc-file.patch" am
     #do_patch "$_mabs/0004-loader-Static-library-name-related-hacks.patch" am
+    #do_patch "$_mabs/0005-loader-dllmain-related-hacks.patch" am
 
-    #grep_and_sed VULKAN_LIB_SUFFIX loader/vulkan.pc.in \
-    #        's/@VULKAN_LIB_SUFFIX@//'
+    grep_and_sed VULKAN_LIB_SUFFIX loader/vulkan.pc.in \
+            's/@VULKAN_LIB_SUFFIX@//'
     create_build_dir
     log dependencies "$MINGW_PREFIX"/bin/python ../scripts/update_deps.py --no-build
     cd_safe Vulkan-Headers
@@ -2340,6 +2347,11 @@ if [[ $exitearly = EE6 ]]; then
 fi
 
 enabled openssl && hide_libressl
+if enabled libcdio || mpv_enabled cdda; then
+    do_pacman_install libcdio-paranoia
+    grep -ZlER -- "-R/mingw\S+" "$MINGW_PREFIX"/lib/pkgconfig/* | xargs -r -0 sed -ri 's;-R/mingw\S+;;g'
+fi
+
 if [[ $ffmpeg != no ]]; then
     enabled libgsm && do_pacman_install gsm
     enabled libsnappy && do_pacman_install snappy
@@ -2355,10 +2367,6 @@ if [[ $ffmpeg != no ]]; then
             "/Libs:/ i\Requires.private: zlib libssl"
     fi
     enabled libtheora && do_pacman_install libtheora
-    if enabled libcdio; then
-        do_pacman_install libcdio-paranoia
-        grep -ZlER -- "-R/mingw\S+" "$MINGW_PREFIX"/lib/pkgconfig/* | xargs -r -0 sed -ri 's;-R/mingw\S+;;g'
-    fi
     enabled libcaca && do_addOption --extra-cflags=-DCACA_STATIC && do_pacman_install libcaca
     enabled libmodplug && do_addOption --extra-cflags=-DMODPLUG_STATIC && do_pacman_install libmodplug
     enabled libopenjpeg && do_pacman_install openjpeg2
@@ -2580,7 +2588,7 @@ _check=(bin-video/heif-{dec,enc,info,thumbnailer}.exe)
 [[ $libheif = shared ]] && _check+=(bin-video/libheif.dll)
 if [[ $libheif != n ]] &&
     do_vcs "$SOURCE_REPO_LIBHEIF"; then
-    do_uninstall "${_check[@]}"
+    do_uninstall bin-video/heif-view.exe "${_check[@]}"
 
     do_pacman_install libjpeg-turbo
     pc_exists "libpng" || do_pacman_install libpng
@@ -2809,6 +2817,7 @@ if [[ $mpv != n ]] && pc_exists libavcodec libavformat libswscale libavfilter; t
     _check=(mujs.{h,pc} libmujs.a)
     if ! mpv_disabled javascript &&
         do_vcs "$SOURCE_REPO_MUJS"; then
+        do_patch "https://github.com/ccxvii/mujs/compare/master...1480c1:mujs:pkgconfig/prefix.patch" am
         do_uninstall bin-global/mujs.exe "${_check[@]}"
         log clean env -i PATH="$PATH" "$(command -v make)" clean
         mujs_targets=(build/release/{mujs.pc,libmujs.a})
@@ -2837,22 +2846,28 @@ if [[ $mpv != n ]] && pc_exists libavcodec libavformat libswscale libavfilter; t
     ! mpv_disabled cplayer && _check+=(bin-video/mpv.{exe,com})
     _deps=(lib{ass,avcodec,vapoursynth,shaderc_combined,spirv-cross,placebo}.a "$MINGW_PREFIX"/lib/libuchardet.a)
     if do_vcs "$SOURCE_REPO_MPV"; then
-        do_patch "https://github.com/1480c1/mpv/commit/e26713d7b0e4a096c2039a263532ce818cc8043e.patch" am
+        do_patch "https://github.com/mpv-player/mpv/compare/master...1480c1:mpv:initguid.patch" am
         do_uninstall share/man/man1/mpv.1 include/mpv share/doc/mpv etc/mpv "${_check[@]}"
         hide_conflicting_libs
         create_ab_pkgconfig
+        mpv_cflags=() mpv_ldflags=()
         if ! mpv_disabled manpage-build || mpv_enabled html-build; then
             do_pacman_install python-docutils
+        fi
+        if enabled libnpp && [[ -n "$CUDA_PATH" ]]; then
+            mpv_cflags+=("-I$(cygpath -sm "$CUDA_PATH")/include")
+            mpv_ldflags+=("-L$(cygpath -sm "$CUDA_PATH")/lib/x64")
+            #MPV_ARGS+=(-Dc_args="-I$(cygpath -sm "$CUDA_PATH")/include")
+            #MPV_ARGS+=(-Dc_link_args="-L$(cygpath -sm "$CUDA_PATH")/lib/x64")
         fi
         mpv_enabled pdf-build && do_pacman_install python-rst2pdf
 
         [[ -f mpv_extra.sh ]] && source mpv_extra.sh
 
         mapfile -t MPV_ARGS < <(mpv_build_args)
-        MPV_ARGS+=(-Dc_args="-I$(cygpath -sm "$CUDA_PATH")/include")
-        MPV_ARGS+=(-Dc_link_args="-L$(cygpath -sm "$CUDA_PATH")/lib/x64")
-        do_mesoninstall video "${MPV_ARGS[@]}"
-        unset MPV_ARGS
+        CFLAGS+=" ${mpv_cflags[*]}" LDFLAGS+=" ${mpv_ldflags[*]}" \
+            do_mesoninstall video "${MPV_ARGS[@]}"
+        unset MPV_ARGS mpv_cflags mpv_ldflags
         hide_conflicting_libs -R
         files_exist share/man/man1/mpv.1 && dos2unix -q "$LOCALDESTDIR"/share/man/man1/mpv.1
         create_winpty_exe mpv "$LOCALDESTDIR"/bin-video/ "export _started_from_console=yes"
@@ -2936,7 +2951,7 @@ if [[ $cyanrip = y ]]; then
             config_path=.. do_configure "${FFMPEG_BASE_OPTS[@]}" \
                 --prefix="$LOCALDESTDIR/opt/cyanffmpeg" \
                 --disable-{programs,devices,filters,decoders,hwaccels,encoders,muxers} \
-                --disable-{debug,protocols,demuxers,parsers,doc,swscale,postproc,network} \
+                --disable-{debug,protocols,demuxers,parsers,doc,swscale,network} \
                 --disable-{avdevice,autodetect} \
                 --disable-bsfs --enable-protocol=file,data \
                 --enable-encoder=flac,tta,aac,wavpack,alac,pcm_s16le,pcm_s32le \

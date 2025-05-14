@@ -955,16 +955,6 @@ do_changeFFmpegConfig() {
     eval "$(sed -n '/EXTERNAL_LIBRARY_NONFREE_LIST=/,/^"/p' "$config_script" | tr -s '\n' ' ')"
     eval "$(sed -n '/EXTERNAL_LIBRARY_VERSION3_LIST=/,/^"/p' "$config_script" | tr -s '\n' ' ')"
 
-    # handle gpl libs
-    local gpl
-    read -ra gpl <<< "${EXTERNAL_LIBRARY_GPL_LIST//_/-} gpl"
-    if [[ $license == gpl* || $license == nonfree ]] &&
-        { enabled_any "${gpl[@]}" || ! disabled postproc; }; then
-        do_addOption --enable-gpl
-    else
-        do_removeOptions "${gpl[*]/#/--enable-} --enable-postproc --enable-gpl"
-    fi
-
     # handle (l)gplv3 libs
     local version3
     read -ra version3 <<< "${EXTERNAL_LIBRARY_VERSION3_LIST//_/-}"
@@ -1719,7 +1709,10 @@ do_unhide_all_sharedlibs() {
 
 do_pacman_resolve_pkgs() (
     : "${prefix=$MINGW_PACKAGE_PREFIX-}"
-    pacsift --exact --sync --any "${@/#/--provides=$prefix}" "${@/#/--name=$prefix}" 2>&1 | sed "s|^.*/$prefix||"
+    # Prefer exact matches, then provides
+    pkg=$(pacsift --exact --sync --any "${@/#/--name=$prefix}" 2>&1)
+    [[ -z $pkg ]] && pkg=$(pacsift --exact --sync --any "${@/#/--provides=$prefix}" 2>&1)
+    echo "${pkg#*/"$prefix"}"
 )
 
 is_pkg_installed() (
