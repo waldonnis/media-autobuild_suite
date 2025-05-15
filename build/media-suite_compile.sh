@@ -2239,8 +2239,7 @@ if [[ $ffmpeg != no ]] && enabled avisynth &&
     do_checkIfExist
 fi
 
-#_check=(libvulkan.a vulkan.pc vulkan/vulkan.h d3d{kmthk,ukmdt}.h)
-_check=(libvulkan-1.dll.a vulkan.pc vulkan/vulkan.h d3d{kmthk,ukmdt}.h)
+_check=(libvulkan.a vulkan.pc vulkan/vulkan.h d3d{kmthk,ukmdt}.h)
 if { { [[ $ffmpeg != no ]] && enabled_any vulkan libplacebo; } ||
      { [[ $mpv != n ]] && ! mpv_disabled_any vulkan libplacebo; } } &&
     do_vcs "$SOURCE_REPO_VULKANLOADER" vulkan-loader; then
@@ -2248,11 +2247,11 @@ if { { [[ $ffmpeg != no ]] && enabled_any vulkan libplacebo; } ||
     _mabs=https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/vulkan-loader
     do_pacman_install uasm
     do_uninstall "${_check[@]}"
-    #do_patch "$_mabs/0001-pc-remove-CMAKE_CXX_IMPLICIT_LINK_LIBRARIES.patch" am
-    #do_patch "$_mabs/0002-loader-CMake-related-static-hacks.patch" am
-    #do_patch "$_mabs/0003-loader-Re-add-private-libs-to-pc-file.patch" am
-    #do_patch "$_mabs/0004-loader-Static-library-name-related-hacks.patch" am
-    #do_patch "$_mabs/0005-loader-dllmain-related-hacks.patch" am
+    do_patch "$_mabs/0001-pc-remove-CMAKE_CXX_IMPLICIT_LINK_LIBRARIES.patch" am
+    do_patch "$_mabs/0002-loader-CMake-related-static-hacks.patch" am
+    do_patch "$_mabs/0003-loader-Re-add-private-libs-to-pc-file.patch" am
+    do_patch "$_mabs/0004-loader-Static-library-name-related-hacks.patch" am
+    do_patch "$_mabs/0005-loader-dllmain-related-hacks.patch" am
 
     grep_and_sed VULKAN_LIB_SUFFIX loader/vulkan.pc.in \
             's/@VULKAN_LIB_SUFFIX@//'
@@ -2855,18 +2854,15 @@ if [[ $mpv != n ]] && pc_exists libavcodec libavformat libswscale libavfilter; t
             do_pacman_install python-docutils
         fi
         if enabled libnpp && [[ -n "$CUDA_PATH" ]]; then
-            mpv_cflags+=("-I$(cygpath -sm "$CUDA_PATH")/include")
-            mpv_ldflags+=("-L$(cygpath -sm "$CUDA_PATH")/lib/x64")
-            #MPV_ARGS+=(-Dc_args="-I$(cygpath -sm "$CUDA_PATH")/include")
-            #MPV_ARGS+=(-Dc_link_args="-L$(cygpath -sm "$CUDA_PATH")/lib/x64")
+            MPV_ARGS+=(-Dc_args="-I$(cygpath -sm "$CUDA_PATH")/include")
+            MPV_ARGS+=(-Dc_link_args="-L$(cygpath -sm "$CUDA_PATH")/lib/x64")
         fi
         mpv_enabled pdf-build && do_pacman_install python-rst2pdf
 
         [[ -f mpv_extra.sh ]] && source mpv_extra.sh
 
         mapfile -t MPV_ARGS < <(mpv_build_args)
-        CFLAGS+=" ${mpv_cflags[*]}" LDFLAGS+=" ${mpv_ldflags[*]}" \
-            do_mesoninstall video "${MPV_ARGS[@]}"
+        do_mesoninstall video "${MPV_ARGS[@]}"
         unset MPV_ARGS mpv_cflags mpv_ldflags
         hide_conflicting_libs -R
         files_exist share/man/man1/mpv.1 && dos2unix -q "$LOCALDESTDIR"/share/man/man1/mpv.1
