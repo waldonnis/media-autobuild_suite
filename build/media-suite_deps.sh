@@ -4,6 +4,7 @@
 SOURCE_REPO_AMF=https://github.com/GPUOpen-LibrariesAndSDKs/AMF.git
 SOURCE_REPO_ANGLE=https://chromium.googlesource.com/angle/angle
 SOURCE_REPO_ARRIB24=https://github.com/nkoriyama/aribb24.git
+SOURCE_REPO_AUDIOTOOLBOX=https://github.com/cynagenautes/AudioToolboxWrapper.git
 SOURCE_REPO_AV1AN=https://github.com/master-of-zen/Av1an.git
 SOURCE_REPO_AVISYNTH=https://github.com/AviSynth/AviSynthPlus.git
 SOURCE_REPO_CODEC2=https://github.com/drowe67/codec2.git
@@ -88,6 +89,7 @@ SOURCE_REPO_MPV=https://github.com/mpv-player/mpv.git
 SOURCE_REPO_MUJS=https://github.com/ccxvii/mujs.git
 SOURCE_REPO_NEON=https://github.com/notroj/neon.git
 SOURCE_REPO_OPENAL=https://github.com/kcat/openal-soft.git
+SOURCE_REPO_OPENAPV=https://github.com/AcademySoftwareFoundation/openapv.git
 SOURCE_REPO_OPENCLHEADERS=https://github.com/KhronosGroup/OpenCL-Headers.git
 SOURCE_REPO_OPUS=https://gitlab.xiph.org/xiph/opus.git
 SOURCE_REPO_OPUSEXE=https://gitlab.xiph.org/xiph/opus-tools.git

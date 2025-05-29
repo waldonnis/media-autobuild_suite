@@ -189,13 +189,14 @@ else
             # these macros are for some reason not set, even though they should be according to CMakeLists.txt
             local zlib_macros="-DINFLATE_CHUNK_SIMD_SSE2 -DADLER32_SIMD_SSSE3 -DINFLATE_CHUNK_READ_64LE -DCRC32_SIMD_SSE42_PCLMUL -DDEFLATE_SLIDE_HASH_SSE2 -D_LARGEFILE64_SOURCE=1 -DX86_WINDOWS"
             sed -i 's; -L${sharedlibdir};;' zlib.pc.cmakein
-            # add missing header and source files needed for compilation, and force all executables to link with static zlib
+            # add missing header and source files needed for compilation, force all executables to link with static zlib, and name libraries correctly with -DUNIX=OFF
             sed -e 's;ioapi.h;ioapi.h contrib/minizip/iowin32.c contrib/minizip/iowin32.h;' \
-                -e 's;zlib);zlibstatic);' -i CMakeLists.txt
+                -e 's;zlib);zlibstatic);' -e 's;BUILD_SHARED_LIBS AND WIN32;MINGW;' \
+                -e 's;zlib PROPERTIES SUFFIX "1.dll";zlib zlibstatic PROPERTIES OUTPUT_NAME z;' -i CMakeLists.txt
             # the win32 dir is missing, so copy the folder from original zlib
             do_wget -c -r -q "https://github.com/madler/zlib/archive/refs/heads/develop.tar.gz"
             tar --strip-components=1 -xzf develop.tar.gz zlib-develop/win32
-            do_cmakeinstall -DINSTALL_PKGCONFIG_DIR="${LOCALDESTDIR}/lib/pkgconfig" \
+            do_cmakeinstall -DUNIX=OFF -DINSTALL_PKGCONFIG_DIR="${LOCALDESTDIR}/lib/pkgconfig" \
                 -DUSE_ZLIB_RABIN_KARP_HASH=ON -DENABLE_SIMD_OPTIMIZATIONS=ON \
                 -DCMAKE_C_FLAGS="${CFLAGS} ${zlib_macros} -msse4.2 -mpclmul" "${extracommands[@]}"
             [[ $standalone = y ]] && do_install minizip_bin.exe bin-global/minizip.exe &&
@@ -328,7 +329,7 @@ if [[ $gifski != n ]]; then
             do_pacman_install clang
         fi
         PKG_CONFIG="$LOCALDESTDIR/bin/ab-pkg-config-static.bat" \
-            do_rust "${extracommands[@]}"
+            LIBCLANG_PATH="$MINGW_PREFIX/bin" do_rust "${extracommands[@]}"
         do_install "target/$CARCH-pc-windows-gnu$rust_target_suffix/release/gifski.exe" bin-global/
         do_checkIfExist
         unset extracommands
@@ -736,6 +737,9 @@ if [[ $ffmpeg != no || $standalone = y ]] && enabled libtesseract; then
     fi
 
     do_pacman_install libarchive pango asciidoc
+    # need to fixup libarchive.pc
+    grep_and_sed libiconv.dll.a "$MINGW_PREFIX/lib/pkgconfig/libarchive.pc" \
+        "s| ${MINGW_PREFIX}/lib/libiconv.dll.a -L${MINGW_PREFIX}/lib||"
     _check=(libtesseract.{,l}a tesseract.pc)
     if do_vcs "$SOURCE_REPO_TESSERACT"; then
         do_pacman_install docbook-xsl omp
@@ -1179,6 +1183,33 @@ if [[ $ffmpeg != no ]] && enabled liblc3 &&
         do_mesoninstall audio
     fi
     do_checkIfExist
+fi
+
+_check=(bin/atw_ldwrapper libAudioToolboxWrapper.a)
+if [[ $ffmpeg != no ]] && enabled audiotoolbox; then
+    _qtfiles_url="https://github.com/AnimMouse/QTFiles/releases/download/v12.10.11"
+    _deps=(bin-video/{ASL,CoreAudioToolbox,CoreFoundation,icudt62,libdispatch,libicuin,libicuuc,objc}.dll)
+    if ! files_exist "${_deps[@]}"; then
+        if [[ $build64 = yes ]]; then
+            do_wget -r -q -h 32fcd058936410f7eabd3b55a8931bce5f45bb7892d6a2c65387820daca52f58 \
+                "${_qtfiles_url}/QTfiles64.7z"
+            do_install *.dll bin-video
+            rm -rf ../QTfiles64/
+        fi
+        if [[ $build32 = yes ]]; then
+            do_wget -r -q -h c6c582fe1af4e0c2b1eb7c141ad929a81f14d123aedd3b16df8226c104fb3028 \
+                "${_qtfiles_url}/QTfiles.7z"
+            do_install *.dll bin-video
+            rm -rf ../QTfiles/
+        fi
+    fi
+
+    if do_vcs "$SOURCE_REPO_AUDIOTOOLBOX"; then
+        do_uninstall "${_check[@]}"
+        do_cmakeinstall
+        do_checkIfExist
+    fi
+    unset _qtfiles_url
 fi
 
 if [[ $exitearly = EE4 ]]; then
@@ -2114,7 +2145,7 @@ if [[ $av1an != n ]]; then
         do_uninstall "${_check[@]}"
         do_pacman_install clang
         PKG_CONFIG="$LOCALDESTDIR/bin/ab-pkg-config-static.bat" \
-            VAPOURSYNTH_LIB_DIR="$LOCALDESTDIR/lib" do_rust
+            LIBCLANG_PATH="$MINGW_PREFIX/bin" VAPOURSYNTH_LIB_DIR="$LOCALDESTDIR/lib" do_rust
         do_install "target/$CARCH-pc-windows-gnu$rust_target_suffix/release/av1an.exe" $av1an_bindir/
         do_checkIfExist
     fi
@@ -2198,33 +2229,37 @@ else
     pc_exists libvvdec || do_removeOption "--enable-libvvdec"
 fi
 
-_check=(bin-video/xeve_app.exe xeve/xeve{,_exports}.h libxeve.a xeve.pc)
+_check=(bin-video/xeve_app.exe xeve/xeve{,_exports}.h xeve/libxeve.a xeve.pc)
 if [[ $ffmpeg != no ]] && enabled libxeve &&
     do_vcs "$SOURCE_REPO_XEVE"; then
     do_uninstall bin-video/libxeve.dll lib/libxeve.dll.a.dyn "${_check[@]}"
     sed -i 's/-Werror //' CMakeLists.txt
-    do_cmakeinstall video
-    # no way to disable shared lib building in cmake
-    # move the static library out from subfolder to make ffmpeg configure find it easier
-    mv -f "$LOCALDESTDIR"/lib/xeve/libxeve.a "$LOCALDESTDIR"/lib/libxeve.a
+    do_cmakeinstall video # no way to disable shared lib building in cmake
     mv -f "$LOCALDESTDIR"/lib/libxeve.dll.a "$LOCALDESTDIR"/lib/libxeve.dll.a.dyn
-    # delete the now empty subfolder
-    rmdir "$LOCALDESTDIR/lib/xeve" > /dev/null 2>&1
+    # patch the lib path to actual subdirectory it installed to
+    sed -i 's|Libs: -L${libdir} -lxeve|Libs: -L${libdir}/xeve -lxeve|' "$LOCALDESTDIR"/lib/pkgconfig/xeve.pc
     do_checkIfExist
 fi
 
-_check=(bin-video/xevd_app.exe xevd/xevd{,_exports}.h libxevd.a xevd.pc)
+_check=(bin-video/xevd_app.exe xevd/xevd{,_exports}.h xevd/libxevd.a xevd.pc)
 if [[ $ffmpeg != no ]] && enabled libxevd &&
     do_vcs "$SOURCE_REPO_XEVD"; then
     do_uninstall bin-video/libxevd.dll lib/libxevd.dll.a.dyn "${_check[@]}"
     sed -i 's/-Werror //' CMakeLists.txt
-    do_cmakeinstall video
-    # no way to disable shared lib building in cmake
-    # move the static library out from subfolder to make ffmpeg configure find it easier
-    mv -f "$LOCALDESTDIR"/lib/xevd/libxevd.a "$LOCALDESTDIR"/lib/libxevd.a
+    do_cmakeinstall video # no way to disable shared lib building in cmake
     mv -f "$LOCALDESTDIR"/lib/libxevd.dll.a "$LOCALDESTDIR"/lib/libxevd.dll.a.dyn
-    # delete the now empty subfolder
-    rmdir "$LOCALDESTDIR/lib/xevd" > /dev/null 2>&1
+    # patch the lib path to actual subdirectory it installed to
+    sed -i 's|Libs: -L${libdir} -lxevd|Libs: -L${libdir}/xevd -lxevd|' "$LOCALDESTDIR"/lib/pkgconfig/xevd.pc
+    do_checkIfExist
+fi
+
+_check=(bin-video/oapv_app_{enc,dec}.exe oapv/oapv.h oapv/liboapv.a oapv.pc)
+if [[ $ffmpeg != no ]] && enabled liboapv &&
+    do_vcs "$SOURCE_REPO_OPENAPV"; then
+    do_uninstall "${_check[@]}"
+    do_cmakeinstall video -DOAPV_BUILD_SHARED_LIB=OFF
+    # patch the lib path to actual subdirectory it installed to
+    sed -i 's|Libs: -L${libdir} -loapv|Libs: -L${libdir}/oapv -loapv|' "$LOCALDESTDIR"/lib/pkgconfig/oapv.pc
     do_checkIfExist
 fi
 
@@ -2428,7 +2463,7 @@ if [[ $ffmpeg != no ]]; then
 
     do_hide_all_sharedlibs
 
-    _check=(libavutil.pc)
+    _check=(libav{util,codec}.pc)
     disabled_any avfilter ffmpeg || _check+=(bin-video/ffmpeg.exe)
     if [[ $ffmpeg =~ shared ]]; then
         _check+=(libavutil.dll.a)
@@ -2467,6 +2502,11 @@ if [[ $ffmpeg != no ]]; then
 
         enabled libvvdec && grep_and_sed FF_PROFILE libavcodec/libvvdec.c 's/FF_PROFILE/AV_PROFILE/g'
 
+        # Bypass ffmpeg check for audiotoolbox
+        enabled audiotoolbox && do_addOption --extra-libs=-lAudioToolboxWrapper && do_addOption --disable-outdev=audiotoolbox &&
+            do_addOption FFMPEG_OPTS_SHARED --extra-libs=-lAudioToolboxWrapper && do_addOption FFMPEG_OPTS_SHARED --disable-outdev=audiotoolbox &&
+            sed -ri "s/check_apple_framework AudioToolbox/check_apple_framework/g" configure
+
         if enabled openal &&
             pc_exists "openal"; then
             OPENAL_LIBS=$($PKG_CONFIG --libs openal)
@@ -2486,8 +2526,10 @@ if [[ $ffmpeg != no ]]; then
         fi
 
         _patches=$(git rev-list $ff_base_commit.. --count)
-        [[ $_patches -gt 0 ]] &&
+        if [[ $_patches -gt 0 ]]; then
             do_addOption "--extra-version=g$(git rev-parse --short $ff_base_commit)+$_patches"
+            do_addOption FFMPEG_OPTS_SHARED "--extra-version=g$(git rev-parse --short $ff_base_commit)+$_patches"
+        fi
 
         _uninstall=(include/libav{codec,device,filter,format,util,resample}
             include/lib{sw{scale,resample},postproc}
@@ -2570,6 +2612,9 @@ if [[ $ffmpeg != no ]]; then
             create_winpty_exe ffmpeg "$LOCALDESTDIR"/bin-video/
         unset ffmpeg_cflags build_suffix
     fi
+    # Fix linking to audiotoolboxwrapper
+    enabled audiotoolbox && grep_or_sed "AudioToolboxWrapper" "$LOCALDESTDIR"/lib/pkgconfig/libavcodec.pc \
+        's/(Libs: .*)/\1 -lAudioToolboxWrapper -lshlwapi -lshell32/'
 fi
 
 _check=(libde265.a)

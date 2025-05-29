@@ -125,7 +125,7 @@ set ffmpeg_options_full=chromaprint decklink frei0r libaribb24 libbs2b libcaca ^
 libcdio libflite libfribidi libgme libilbc libsvthevc ^
 libsvtvp9 libkvazaar libmodplug librist librtmp librubberband #libssh ^
 libtesseract libxavs libzmq libzvbi openal libcodec2 ladspa #vapoursynth #liblensfun ^
-libglslang vulkan libdavs2 libxavs2 libuavs3d libplacebo libjxl libvvenc libvvdec liblc3
+libglslang vulkan libdavs2 libxavs2 libuavs3d libplacebo libjxl libvvenc libvvdec liblc3 audiotoolbox
 
 :: options also available with the suite that add shared dependencies
 set ffmpeg_options_full_shared=opencl opengl cuda-nvcc libnpp libopenh264
@@ -409,8 +409,10 @@ if [0]==[%libheifINI%] (
     echo.
     echo. Will use available encoders and decoders supported by libheif.
     echo. If not found, built libheif will lack the corresponding encode/decode ability.
-    echo. Additionally libde265 will be built.
-    echo. dec265 of libde265 being built depends on "standalone=y" and is always static.
+    echo.
+    echo. Additionally libde265 will always be built.
+    echo. dec265 executable from libde265 being built depends on "standalone=y"
+    echo. and is always static.
     echo.
     echo -------------------------------------------------------------------------------
     echo -------------------------------------------------------------------------------
