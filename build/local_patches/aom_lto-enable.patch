@@ -1,11 +1,11 @@
 diff --git a/build/cmake/aom_configure.cmake b/build/cmake/aom_configure.cmake
-index ee566af65..0ac56ae50 100644
+index 07e354a6..cc6b9219 100644
 --- a/build/cmake/aom_configure.cmake
 +++ b/build/cmake/aom_configure.cmake
-@@ -331,6 +331,7 @@ else()
-   add_cxx_flag_if_supported("-Wc++14-extensions")
-   add_cxx_flag_if_supported("-Wc++17-extensions")
+@@ -360,6 +360,7 @@ else()
+   add_compiler_flag_if_supported("-Wvla")
    add_cxx_flag_if_supported("-Wc++20-extensions")
+   add_cxx_flag_if_supported("-Wc++23-extensions")
 +  add_compiler_flag_if_supported("-flto=auto")
  
    if(CMAKE_C_COMPILER_ID MATCHES "GNU" AND SANITIZE MATCHES "address|undefined")
