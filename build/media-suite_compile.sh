@@ -1055,7 +1055,7 @@ fi
 
 _check=(libgme.{a,pc})
 if [[ $ffmpeg != no ]] && enabled libgme &&
-    do_vcs "$SOURCE_REPO_GAME_MUSIC_EMU"; then
+    do_vcs "$SOURCE_REPO_LIBGME"; then
     do_uninstall include/gme "${_check[@]}"
     do_cmakeinstall -DENABLE_UBSAN=OFF
     do_checkIfExist
