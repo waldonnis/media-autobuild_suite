@@ -2083,7 +2083,7 @@ goto :EOF
     echo.PKG_CONFIG_PATH="${LOCALDESTDIR}/lib/pkgconfig:${MINGW_PREFIX}/lib/pkgconfig"
     echo.
     echo.ARCH_CFLAGS=" -march=znver5 -mtune=znver5" # performance related flags
-rem echo.ARCH_CFLAGS=" -march=generic" # performance related flags
+rem echo.ARCH_CFLAGS=" -mtune=generic" # performance related flags
     echo.
     echo.CFLAGS="-D_FORTIFY_SOURCE=2 -fstack-protector-strong" # security related flags
     echo.CFLAGS+=" ${ARCH_CFLAGS} -O2 -pipe" # performance related flags
