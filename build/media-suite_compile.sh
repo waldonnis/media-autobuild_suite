@@ -943,7 +943,7 @@ if [[ $standalone = y ]] && enabled libvorbis &&
     do_uninstall "${_check[@]}"
     extracommands=()
     enabled libspeex || extracommands+=(--without-speex)
-    CFLAGS+=" -std=gnu17 " do_separate_conf --disable-{ogg123,vorbiscomment,vcut,ogginfo} \
+    do_separate_conf --disable-{ogg123,vorbiscomment,vcut,ogginfo} \
         --with-lib{iconv,intl}-prefix="$MINGW_PREFIX" "${extracommands[@]}"
     do_make
     do_install oggenc/oggenc.exe oggdec/oggdec.exe bin-audio/
@@ -1364,6 +1364,7 @@ if { [[ $rav1e = y ]] || [[ $libavif = y ]] || enabled librav1e; } &&
     if [[ $libavif = y ]] || enabled librav1e; then
         rm -f "$CARGO_HOME/config" 2> /dev/null
         PKG_CONFIG="$LOCALDESTDIR/bin/ab-pkg-config-static.bat" \
+            RUSTFLAGS+=" -C target-cpu=znver5 " \
             log "install-rav1e-c" cargo capi install \
             --release --jobs "$cpuCount" --prefix="$LOCALDESTDIR" \
             --destdir="$PWD/install-$bits"
@@ -1388,7 +1389,7 @@ if [[ $bits = 32bit ]]; then
 elif { [[ $svtav1 = y ]] || enabled libsvtav1; } &&
     do_vcs "$SOURCE_REPO_SVTAV1"; then
     do_uninstall include/svt-av1 "${_check[@]}" include/svt-av1
-    do_cmakeinstall video -DUNIX=OFF -DENABLE_AVX512=ON -DSVT_AV1_LTO=ON -DNATIVE=ON
+    do_cmakeinstall video -DUNIX=OFF -DENABLE_AVX512=ON
 
     do_checkIfExist
 fi
@@ -1532,7 +1533,7 @@ if { { [[ $ffmpeg != no ]] && enabled libbluray; } || ! mpv_disabled libbluray; 
     else
         extracommands+=(--without-libxml2)
     fi
-    CFLAGS+=" -Ddec_init=libbluray_dec_init $(enabled libxml2 && echo "-DLIBXML_STATIC")" \
+    CFLAGS+=" $(enabled libxml2 && echo "-DLIBXML_STATIC")" \
         do_separate_confmakeinstall --disable-{examples,doxygen-doc} \
         --without-{fontconfig,freetype} "${extracommands[@]}"
     do_checkIfExist
@@ -1597,10 +1598,10 @@ _check=(libdovi.a libdovi/rpu_parser.h dovi.pc bin-video/dovi_tool.exe)
 if [[ $dovitool = y ]] &&
     do_vcs "$SOURCE_REPO_DOVI_TOOL"; then
     do_uninstall "${_check[@]}" include/libdovi bin-video/dovi.dll dovi.def dovi.dll.a
-    RUSTFLAGS="-C target-cpu=native" do_rust
+    RUSTFLAGS="-C target-cpu=znver5" do_rust
     do_install "target/$CARCH-pc-windows-gnu$rust_target_suffix/release/dovi_tool.exe" bin-video/
     cd dolby_vision
-    RUSTFLAGS="-C target-cpu=native" do_rustcinstall --bindir="$LOCALDESTDIR"/bin-video/ --library-type=staticlib
+    RUSTFLAGS="-C target-cpu=znver5" do_rustcinstall --bindir="$LOCALDESTDIR"/bin-video/ --library-type=staticlib
     do_checkIfExist
 fi
 
@@ -1608,7 +1609,7 @@ _check=(bin-video/hdr10plus_tool.exe)
 if [[ $hdr10plustool = y ]] &&
     do_vcs "$SOURCE_REPO_HDR10PLUS_TOOL"; then
     do_uninstall "${_check[@]}"
-    RUSTFLAGS="-C target-cpu=native" do_rust
+    RUSTFLAGS="-C target-cpu=znver5" do_rust
     do_install "target/$CARCH-pc-windows-gnu$rust_target_suffix/release/hdr10plus_tool.exe" bin-video/
     do_checkIfExist
 fi
@@ -1757,7 +1758,7 @@ if [[ $bits = 32bit ]]; then
 elif { [[ $svthevc = y ]] || enabled libsvthevc; } &&
     do_vcs "$SOURCE_REPO_SVTHEVC"; then
     do_uninstall "${_check[@]}" include/svt-hevc
-    do_cmakeinstall video -DUNIX=OFF -DNATIVE=ON
+    do_cmakeinstall video -DUNIX=OFF
     do_checkIfExist
 fi
 
@@ -1768,7 +1769,7 @@ if [[ $bits = 32bit ]]; then
 elif { [[ $svtvp9 = y ]] || enabled libsvtvp9; } &&
     do_vcs "$SOURCE_REPO_SVTVP9"; then
     do_uninstall include/svt-vp9 "${_check[@]}" include/svt-vp9
-    do_cmakeinstall video -DUNIX=OFF -DNATIVE=ON
+    do_cmakeinstall video -DUNIX=OFF
     do_checkIfExist
 fi
 
@@ -1996,7 +1997,7 @@ if enabled libxvid && [[ $standalone = y ]] &&
     do_uninstall "${_check[@]}"
     cd_safe xvidcore/build/generic
     log "bootstrap" ./bootstrap.sh
-    CFLAGS+=" -std=gnu17 " do_configure
+    do_configure
     do_make
     do_install ../../src/xvid.h include/
     do_install '=build/libxvidcore.a' libxvidcore.a

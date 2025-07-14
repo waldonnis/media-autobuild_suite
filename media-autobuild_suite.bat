@@ -2082,7 +2082,7 @@ goto :EOF
     echo.PKG_CONFIG="${MINGW_PREFIX}/bin/pkgconf --keep-system-cflags --static"
     echo.PKG_CONFIG_PATH="${LOCALDESTDIR}/lib/pkgconfig:${MINGW_PREFIX}/lib/pkgconfig"
     echo.
-    echo.ARCH_CFLAGS=" -march=znver5 -mtune=znver5" # performance related flags
+    echo.ARCH_CFLAGS=" -march=znver5 " # performance related flags
 rem echo.ARCH_CFLAGS=" -mtune=generic" # performance related flags
     echo.
     echo.CFLAGS="-D_FORTIFY_SOURCE=2 -fstack-protector-strong" # security related flags
