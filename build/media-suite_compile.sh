@@ -1499,12 +1499,11 @@ if { [[ $ffmpeg != no ]] && enabled libbluray; } || ! mpv_disabled libbluray; th
     fi
 fi
 
-_check=(libbluray.{{,l}a,pc})
+_check=(libbluray.{a,pc})
 if { { [[ $ffmpeg != no ]] && enabled libbluray; } || ! mpv_disabled libbluray; } &&
     do_vcs "$SOURCE_REPO_LIBBLURAY"; then
     [[ -f contrib/libudfread/.git ]] || do_git_submodule
     do_patch "https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/libbluray/0001-dec-prefix-with-libbluray-for-now.patch" am
-    do_autoreconf
     do_uninstall include/libbluray share/java "${_check[@]}"
     sed -i 's|__declspec(dllexport)||g' jni/win32/jni_md.h
     extracommands=()
@@ -1526,16 +1525,16 @@ if { { [[ $ffmpeg != no ]] && enabled libbluray; } || ! mpv_disabled libbluray; 
         export JDK_HOME=''
         export JAVA_HOME
     else
-        extracommands+=(--disable-bdjava-jar)
+        extracommands+=(-Dbdj_jar=disabled)
     fi
     if enabled libxml2; then
         sed -ri 's;(Cflags.*);\1 -DLIBXML_STATIC;' src/libbluray.pc.in
     else
-        extracommands+=(--without-libxml2)
+        extracommands+=(-Dlibxml2=disabled)
     fi
     CFLAGS+=" $(enabled libxml2 && echo "-DLIBXML_STATIC")" \
-        do_separate_confmakeinstall --disable-{examples,doxygen-doc} \
-        --without-{fontconfig,freetype} "${extracommands[@]}"
+        do_mesoninstall -Denable_{docs,examples}=false \
+        -D{fontconfig,freetype}=disabled "${extracommands[@]}"
     do_checkIfExist
     PATH=$OLD_PATH
     unset extracommands JDK_HOME JAVA_HOME OLD_PATH
