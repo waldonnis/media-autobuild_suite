@@ -1531,8 +1531,7 @@ if { { [[ $ffmpeg != no ]] && enabled libbluray; } || ! mpv_disabled libbluray; 
         extracommands+=(-Dlibxml2=disabled)
     fi
     CFLAGS+=" $(enabled libxml2 && echo "-DLIBXML_STATIC")" \
-        do_mesoninstall -Denable_{docs,examples}=false \
-        -D{fontconfig,freetype}=disabled "${extracommands[@]}"
+        do_mesoninstall -D{fontconfig,freetype}=disabled -Denable_{docs,examples}=false "${extracommands[@]}"
     if enabled libxml2; then
         sed -ri 's;(Cflags.*);\1 -DLIBXML_STATIC;' $LOCALDESTDIR/lib/pkgconfig/libbluray.pc
     fi
@@ -2613,7 +2612,7 @@ if [[ $libheif != n ]] &&
     do_patch https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/libheif/0001-Edit-CMakeLists.patch
 
     extracflags=()
-    extracommands=(-DWITH_HEADER_COMPRESSION=ON -DWITH_UNCOMPRESSED_CODEC=ON)
+    extracommands=(-DWITH_HEADER_COMPRESSION=ON -DWITH_UNCOMPRESSED_CODEC=ON -DBUILD_DOCUMENTATION=OFF)
 
     pc_exists "libde265" &&
         extracommands+=(-DWITH_LIBDE265=ON -DWITH_LIBDE265_PLUGIN=OFF) &&
