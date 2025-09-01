@@ -25,7 +25,6 @@ SOURCE_REPO_FFMS2=https://github.com/FFMS/ffms2.git
 SOURCE_REPO_FFNVCODEC=https://git.videolan.org/git/ffmpeg/nv-codec-headers.git
 SOURCE_REPO_FLAC=https://github.com/xiph/flac.git
 SOURCE_REPO_FLITE=https://github.com/festvox/flite.git
-#SOURCE_REPO_FONTCONFIG=https://gitlab.freedesktop.org/fontconfig/fontconfig.git#tag=LATEST
 SOURCE_REPO_FONTCONFIG=https://github.com/fontconfig/fontconfig.git#tag=LATEST
 SOURCE_REPO_FREETYPE=https://github.com/freetype/freetype.git#tag=LATEST
 SOURCE_REPO_FREI0R=https://github.com/dyne/frei0r.git
@@ -63,7 +62,7 @@ SOURCE_REPO_LIBMUSICBRAINZ=https://github.com/metabrainz/libmusicbrainz.git
 SOURCE_REPO_LIBMYSOFA=https://github.com/hoene/libmysofa.git
 SOURCE_REPO_LIBOGG=https://github.com/xiph/ogg.git
 SOURCE_REPO_LIBOPENMPT=https://github.com/OpenMPT/openmpt.git#branch=OpenMPT-1.30
-SOURCE_REPO_LIBOPUSENC=https://gitlab.xiph.org/xiph/libopusenc.git
+SOURCE_REPO_LIBOPUSENC=https://github.com/xiph/libopusenc.git
 SOURCE_REPO_LIBPLACEBO=https://code.videolan.org/videolan/libplacebo.git
 SOURCE_REPO_LIBPNG=https://github.com/glennrp/libpng.git
 SOURCE_REPO_LIBRAV1E=https://github.com/xiph/rav1e.git
@@ -90,9 +89,9 @@ SOURCE_REPO_NEON=https://github.com/notroj/neon.git
 SOURCE_REPO_OPENAL=https://github.com/kcat/openal-soft.git
 SOURCE_REPO_OPENAPV=https://github.com/AcademySoftwareFoundation/openapv.git
 SOURCE_REPO_OPENCLHEADERS=https://github.com/KhronosGroup/OpenCL-Headers.git
-SOURCE_REPO_OPUS=https://gitlab.xiph.org/xiph/opus.git
-SOURCE_REPO_OPUSEXE=https://gitlab.xiph.org/xiph/opus-tools.git
-SOURCE_REPO_OPUSFILE=https://gitlab.xiph.org/xiph/opusfile.git
+SOURCE_REPO_OPUS=https://github.com/xiph/opus.git
+SOURCE_REPO_OPUSEXE=https://github.com/xiph/opus-tools.git
+SOURCE_REPO_OPUSFILE=https://github.com/xiph/opusfile.git
 SOURCE_REPO_RIPGREP=https://github.com/BurntSushi/ripgrep.git
 SOURCE_REPO_RUBBERBAND=https://github.com/m-ab-s/rubberband.git
 SOURCE_REPO_SDL2=https://github.com/libsdl-org/SDL.git#SDL2
