@@ -1453,9 +1453,9 @@ if { { [[ $ffmpeg != no ]] && enabled_any libdvdread libdvdnav; } ||
     do_mesoninstall
     do_checkIfExist
 fi
-[[ -f $LOCALDESTDIR/lib/pkgconfig/dvdread.pc ]] &&
-    grep_or_sed "Libs.private" "$LOCALDESTDIR"/lib/pkgconfig/dvdread.pc \
-        "/Libs:/ a\Libs.private: -ldl -lpsapi"
+# [[ -f $LOCALDESTDIR/lib/pkgconfig/dvdread.pc ]] &&
+#     grep_or_sed "Libs.private" "$LOCALDESTDIR"/lib/pkgconfig/dvdread.pc \
+#         "/Libs:/ a\Libs.private: -ldl -lpsapi"
 
 _check=(libdvdnav.a dvdnav.pc)
 _deps=(libdvdread.a)
@@ -1830,7 +1830,6 @@ if [[ $x264 != no ]] ||
             if do_vcs "$SOURCE_REPO_FFMS2"; then
                 do_uninstall "${_check[@]}"
                 sed -i 's/Cflags.*/& -DFFMS_STATIC/' ffms2.pc.in
-                do_patch "https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/ffms2/0001-ffmsindex-fix-linking-issues.patch" am
                 mkdir -p src/config
                 do_autoreconf
                 do_separate_confmakeinstall video --prefix="$LOCALDESTDIR/opt/lightffmpeg"
@@ -2477,7 +2476,7 @@ if [[ $ffmpeg != no ]]; then
         # Bypass ffmpeg check for audiotoolbox
         enabled audiotoolbox && do_addOption --extra-libs=-lAudioToolboxWrapper && do_addOption --disable-outdev=audiotoolbox &&
             do_addOption FFMPEG_OPTS_SHARED --extra-libs=-lAudioToolboxWrapper && do_addOption FFMPEG_OPTS_SHARED --disable-outdev=audiotoolbox &&
-            sed -ri "s/check_apple_framework AudioToolbox/check_apple_framework/g" configure
+            sed -ri "s/enabled audiotoolbox && check_apple_framework.*/enable audiotoolbox/g" configure
 
         if enabled openal &&
             pc_exists "openal"; then
