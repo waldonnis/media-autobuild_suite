@@ -2301,7 +2301,7 @@ if { [[ $mpv != n ]] ||
     do_checkIfExist
 fi
 
-_check=(lib{glslang,OSDependent,SPVRemapper}.a
+_check=(lib{glslang,OSDependent}.a
         libSPIRV{,-Tools{,-opt,-link,-reduce}}.a glslang/SPIRV/GlslangToSpv.h)
 if { [[ $mpv != n ]] ||
      { [[ $ffmpeg != no ]] && enabled_any libplacebo libglslang; } } &&
@@ -2470,6 +2470,8 @@ if [[ $ffmpeg != no ]]; then
         enabled libsvthevc || do_removeOption FFMPEG_OPTS_SHARED "--enable-libsvthevc"
         enabled libsvtav1 || do_removeOption FFMPEG_OPTS_SHARED "--enable-libsvtav1"
         enabled libsvtvp9 || do_removeOption FFMPEG_OPTS_SHARED "--enable-libsvtvp9"
+
+        enabled libglslang && sed -i 's;-lSPVRemapper;;' configure
 
         enabled libvvdec && grep_and_sed FF_PROFILE libavcodec/libvvdec.c 's/FF_PROFILE/AV_PROFILE/g'
 
