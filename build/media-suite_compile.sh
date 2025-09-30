@@ -2471,8 +2471,6 @@ if [[ $ffmpeg != no ]]; then
         enabled libsvtav1 || do_removeOption FFMPEG_OPTS_SHARED "--enable-libsvtav1"
         enabled libsvtvp9 || do_removeOption FFMPEG_OPTS_SHARED "--enable-libsvtvp9"
 
-        enabled libglslang && sed -i 's;-lSPVRemapper;;' configure
-
         enabled libvvdec && grep_and_sed FF_PROFILE libavcodec/libvvdec.c 's/FF_PROFILE/AV_PROFILE/g'
 
         # Bypass ffmpeg check for audiotoolbox
