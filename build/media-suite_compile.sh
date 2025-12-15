@@ -803,6 +803,14 @@ if [[ $ffmpeg != no ]] && enabled libzimg &&
     do_checkIfExist
 fi
 
+_check=(bin-global/SvtJpegxs{De,En}cApp.exe svt-jpegxs/SvtJpegxs{,Dec,Enc}.h libSvtJpegxs.a SvtJpegxs.pc)
+if [[ $ffmpeg != no ]] && enabled libsvtjpegxs &&
+    do_vcs "$SOURCE_REPO_SVTJXS"; then
+    do_uninstall "${_check[@]}"
+    do_cmakeinstall global -DUNIX=OFF
+    do_checkIfExist
+fi
+
 if [[ $exitearly = EE3 ]]; then
     do_simple_print -p '\n\t'"${orange}Exit due to env var MABS_EXIT_EARLY set to EE3"
     return
@@ -2476,6 +2484,9 @@ if [[ $ffmpeg != no ]]; then
         enabled libsvtvp9 || do_removeOption FFMPEG_OPTS_SHARED "--enable-libsvtvp9"
 
         enabled libvvdec && grep_and_sed FF_PROFILE libavcodec/libvvdec.c 's/FF_PROFILE/AV_PROFILE/g'
+
+        # Remove explicit include of DeckLinkAPI_v14_2_1.h since it's merged into the main file for Windows
+        enabled decklink && sed -ri 's|#include <DeckLinkAPI_v14_2_1.h>||g' libavdevice/decklink_{dec,enc,common}.cpp
 
         # Bypass ffmpeg check for audiotoolbox
         enabled audiotoolbox && do_addOption --extra-libs=-lAudioToolboxWrapper && do_addOption --disable-outdev=audiotoolbox &&

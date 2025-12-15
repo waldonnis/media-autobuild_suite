@@ -12,7 +12,7 @@ SOURCE_REPO_CURL=https://github.com/curl/curl.git
 SOURCE_REPO_CYANRIP=https://github.com/cyanreg/cyanrip.git
 SOURCE_REPO_DAV1D=https://code.videolan.org/videolan/dav1d.git
 SOURCE_REPO_DAVS=https://github.com/pkuvcl/davs2.git
-SOURCE_REPO_DECKLINK=https://gitlab.com/m-ab-s/decklink-headers.git#commit=47d84f8d272ca6872b5440eae57609e36014f3b6
+SOURCE_REPO_DECKLINK=https://gitlab.com/m-ab-s/decklink-headers.git
 SOURCE_REPO_DLFCN=https://github.com/dlfcn-win32/dlfcn-win32.git
 SOURCE_REPO_DOVI_TOOL=https://github.com/quietvoid/dovi_tool.git
 SOURCE_REPO_DSSIM=https://github.com/kornelski/dssim.git
@@ -107,6 +107,7 @@ SOURCE_REPO_SRT=https://github.com/Haivision/srt.git
 SOURCE_REPO_SVTAV1=https://gitlab.com/AOMediaCodec/SVT-AV1.git
 SOURCE_REPO_SVTHEVC=https://github.com/OpenVisualCloud/SVT-HEVC.git
 SOURCE_REPO_SVTVP9=https://github.com/OpenVisualCloud/SVT-VP9.git
+SOURCE_REPO_SVTJXS=https://github.com/OpenVisualCloud/SVT-JPEG-XS.git
 SOURCE_REPO_TESSERACT=https://github.com/tesseract-ocr/tesseract.git
 SOURCE_REPO_UAVS3D=https://github.com/uavs3/uavs3d.git
 SOURCE_REPO_URIPARSER=https://github.com/uriparser/uriparser.git
