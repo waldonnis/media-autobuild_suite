@@ -967,7 +967,7 @@ do_changeFFmpegConfig() {
     fi
 
     local nonfreehwaccel
-    read -ra nonfreehwaccel <<< "(${HWACCEL_LIBRARY_NONFREE_LIST//_/-}"
+    read -ra nonfreehwaccel <<< "${HWACCEL_LIBRARY_NONFREE_LIST//_/-}"
     if [[ $license == "nonfree" ]] && enabled_any "${nonfreehwaccel[@]}"; then
         do_addOption --enable-nonfree
     else
@@ -1216,12 +1216,8 @@ do_removeOption() {
     basearray="${arrayname}[@]"
     local orig=("${!basearray}")
 
-	# parentheses within a regular expression must be escaped
-	local re="${option//\(/\\\(}"
-	re='^'"${re//\)/\\\)}"'$'
-
     for ((i = 0; i < ${#orig[@]}; i++)); do
-        if [[ ! ${orig[$i]} =~ $re ]]; then
+        if [[ ! ${orig[$i]} =~ ^${option}$ ]]; then
             temp+=("${orig[$i]}")
         fi
     done
