@@ -2273,10 +2273,12 @@ if { { [[ $ffmpeg != no ]] && enabled_any vulkan libplacebo; } ||
     #do_patch "$_mabs/0003-loader-Re-add-private-libs-to-pc-file.patch" am
     #do_patch "$_mabs/0004-loader-Static-library-name-related-hacks.patch" am
     #do_patch "$_mabs/0005-loader-dllmain-related-hacks.patch" am
+    do_patch "$_mabs/0006-loader-cross-compile-static-linking-hacks.patch" am
 
     #grep_and_sed VULKAN_LIB_SUFFIX loader/vulkan.pc.in \
     #        's/@VULKAN_LIB_SUFFIX@//'
     create_build_dir
+    sed -i "s|command_output(\['git', 'clone'|command_output(\['git', 'clone', '--filter=tree:0'|" ../scripts/update_deps.py
     log dependencies "$MINGW_PREFIX"/bin/python ../scripts/update_deps.py --no-build
     cd_safe Vulkan-Headers
         do_print_progress "Installing Vulkan-Headers"
@@ -2319,6 +2321,7 @@ if { [[ $mpv != n ]] ||
      { [[ $ffmpeg != no ]] && enabled_any libplacebo libglslang; } } &&
     do_vcs "$SOURCE_REPO_GLSLANG"; then
     do_uninstall libHLSL.a "${_check[@]}"
+    sed -i "s|command_output(\['git', 'clone',|command_output(\['git', 'clone', '--filter=tree:0',|" ./update_glslang_sources.py
     log dependencies "$MINGW_PREFIX"/bin/python ./update_glslang_sources.py
     do_cmakeinstall -DUNIX=OFF
     do_checkIfExist
@@ -2334,6 +2337,7 @@ if { [[ $mpv != n ]] ||
     do_uninstall "${_check[@]}" include/shaderc include/libshaderc_util
 
     grep_and_sed d0e67c58134377f065a509845ca6b7d463f5b487 DEPS 's/d0e67c58134377f065a509845ca6b7d463f5b487/76cc41d26f6902de543773023611e40fbcdde58b/g'
+    sed -i "s|\[git, 'clone',|\[git, 'clone', '--filter=tree:0',|" ./utils/git-sync-deps
     log dependencies "$MINGW_PREFIX"/bin/python ./utils/git-sync-deps
 
     # fix python indentation errors from non-existant code review
@@ -2446,6 +2450,12 @@ if [[ $ffmpeg != no ]]; then
         unset _ver
     fi
     disabled autodetect && enabled iconv && do_addOption --extra-libs=-liconv
+    if enabled cairo; then
+        do_pacman_install cairo
+        grep_or_sed ole32 "$MINGW_PREFIX"/lib/pkgconfig/cairo.pc \
+            's/-lwindowscodecs/& -lole32/'
+        do_addOption --extra-cflags=-DCAIRO_COMPILATION
+    fi
 
     do_hide_all_sharedlibs
 
