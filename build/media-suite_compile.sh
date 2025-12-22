@@ -681,7 +681,6 @@ if [[ $jpegxl = y ]] || { [[ $ffmpeg != no ]] && enabled libjxl; }; then
     if do_vcs "$SOURCE_REPO_LIBJXL"; then
         do_git_submodule
         do_uninstall "${_check[@]}" include/jxl bin-global/cjpegli.exe bin-global/djpegli.exe 
-        do_pacman_install asciidoc openexr
         extracommands=()
         [[ $jpegxl = y ]] || extracommands=("-DJPEGXL_ENABLE_TOOLS=OFF")
         CXXFLAGS+=" -DJXL_CMS_STATIC_DEFINE -DJXL_STATIC_DEFINE -DJXL_THREADS_STATIC_DEFINE" \
@@ -2908,8 +2907,8 @@ if [[ $mpv != n ]] && pc_exists libavcodec libavformat libswscale libavfilter; t
 
         # Fix clang vsscript.dll hard requirement, imitate shinchiro's cmake.
         [[ $CC =~ clang ]] && \
-            sed -i "s|-lvsscript|-lvsscript -Wl,-delayload=vsscript.dll|" \
-                "$LOCALDESTDIR"/lib/pkgconfig/vapoursynth-script.pc
+            grep_or_sed "-Wl,-delayload=vsscript.dll" "$LOCALDESTDIR"/lib/pkgconfig/vapoursynth-script.pc \
+                "s|-lvsscript|-lvsscript -Wl,-delayload=vsscript.dll|"
 
         mapfile -t MPV_ARGS < <(mpv_build_args)
         do_mesoninstall video "${MPV_ARGS[@]}"
