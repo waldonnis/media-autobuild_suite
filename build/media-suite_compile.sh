@@ -1405,7 +1405,7 @@ if [[ $libavif = y ]]; then
         extracommands=()
         pc_exists "dav1d" && extracommands+=("-DAVIF_CODEC_DAV1D=SYSTEM")
         pc_exists "rav1e" && extracommands+=("-DAVIF_CODEC_RAV1E=SYSTEM")
-        pc_exists "aom" && extracommands+=("-DAVIF_CODEC_AOM=SYSTEM")
+        #pc_exists "aom" && extracommands+=("-DAVIF_CODEC_AOM=SYSTEM")
         pc_exists "SvtAv1Enc" && extracommands+=("-DAVIF_CODEC_SVT=SYSTEM")
         case $standalone in
         y) extracommands+=("-DAVIF_BUILD_APPS=ON") ;;
