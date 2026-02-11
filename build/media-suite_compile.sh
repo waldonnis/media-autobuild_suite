@@ -1406,6 +1406,7 @@ if [[ $libavif = y ]]; then
         extracommands=()
         pc_exists "dav1d" && extracommands+=("-DAVIF_CODEC_DAV1D=SYSTEM")
         pc_exists "rav1e" && extracommands+=("-DAVIF_CODEC_RAV1E=SYSTEM")
+        # FIX: disabled due to a gcc ICE
         #pc_exists "aom" && extracommands+=("-DAVIF_CODEC_AOM=SYSTEM")
         pc_exists "SvtAv1Enc" && extracommands+=("-DAVIF_CODEC_SVT=SYSTEM")
         case $standalone in
@@ -2649,7 +2650,9 @@ if [[ $libheif != n ]] &&
     pc_exists "dav1d" &&
         extracommands+=(-DWITH_DAV1D=ON -DWITH_DAV1D_PLUGIN=OFF)
     pc_exists "SvtAv1Enc" &&
-        extracommands+=(-DWITH_SvtEnc=ON -DWITH_SvtEnc_PLUGIN=OFF)
+        extracommands+=(-DWITH_SvtEnc=OFF)
+        # FIX: disabled due to a gcc ICE
+        #extracommands+=(-DWITH_SvtEnc=ON -DWITH_SvtEnc_PLUGIN=OFF)
     pc_exists "libvvenc" &&
         extracommands+=(-DWITH_VVENC=ON -DWITH_VVENC_PLUGIN=OFF)
     pc_exists "libvvdec" &&
