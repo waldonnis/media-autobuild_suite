@@ -1689,10 +1689,9 @@ if [[ $ffmpeg != no ]] && enabled_any frei0r ladspa; then
 
     _check=(frei0r.{h,pc})
     if do_vcs "$SOURCE_REPO_FREI0R"; then
-        sed -i 's/find_package (Cairo)//' "CMakeLists.txt"
         do_uninstall lib/frei0r-1 "${_check[@]}"
         do_pacman_install gavl
-        CFLAGS+=" -U__SSE4_1__ " do_cmakeinstall -DWITHOUT_OPENCV=on
+        CFLAGS+=" -U__SSE4_1__ " do_cmakeinstall -DWITHOUT_OPENCV=on -DWITHOUT_CAIRO=on
         do_checkIfExist
     fi
 fi
