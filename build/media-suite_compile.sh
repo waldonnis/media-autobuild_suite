@@ -290,10 +290,12 @@ if [[ $dssim = y ]] &&
     do_checkIfExist
 fi
 
-if [[ $gifski != n ]]; then
+if [[ $gifski != n ]] && [[ $bits = 32bit ]]; then
+    do_simple_print "${orange}Gifski does not support 32-bit compilation and will be disabled"'!'"${reset}"
+elif [[ $gifski != n ]]; then
     if [[ $gifski = video ]]; then
         _check=("$LOCALDESTDIR"/opt/gifskiffmpeg/lib/pkgconfig/lib{av{codec,device,filter,format,util},swscale}.pc)
-        if flavor=gifski do_vcs "https://git.ffmpeg.org/ffmpeg.git#branch=release/6.1"; then
+        if flavor=gifski do_vcs "https://git.ffmpeg.org/ffmpeg.git#branch=release/8.0"; then
             do_uninstall "$LOCALDESTDIR"/opt/gifskiffmpeg
             [[ -f config.mak ]] && log "distclean" make distclean
             create_build_dir gifski
@@ -1161,7 +1163,7 @@ if enabled libshine && do_vcs "$SOURCE_REPO_SHINE"; then
     sed -ri -e 's;(libshine.sym)$;$(srcdir)/\1;' \
         -e '/libshine_la_HEADERS/{s;(src/lib);$(srcdir)/\1;}' \
         -e '/shineenc_CFLAGS/{s;(src/lib);$(srcdir)/\1;}' Makefile.am
-    rm configure
+    [[ ! -f configure ]] || rm configure
     do_autoreconf
     do_separate_confmakeinstall audio
     do_checkIfExist
@@ -1503,7 +1505,6 @@ _check=(libbluray.{a,pc})
 if { { [[ $ffmpeg != no ]] && enabled libbluray; } || ! mpv_disabled libbluray; } &&
     do_vcs "$SOURCE_REPO_LIBBLURAY"; then
     [[ -f contrib/libudfread/.git ]] || do_git_submodule
-    do_patch "https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/libbluray/0001-dec-prefix-with-libbluray-for-now.patch" am
     do_uninstall include/libbluray share/java "${_check[@]}" libbluray.la
     sed -i 's|__declspec(dllexport)||g' jni/win32/jni_md.h
     extracommands=()
@@ -2194,8 +2195,6 @@ _check=(bin-video/vvdecapp.exe
 if [[ $bits = 64bit && $vvdec = y ]] ||
     { [[ $ffmpeg != no && $bits = 64bit ]] && enabled libvvdec; } &&
     do_vcs "$SOURCE_REPO_LIBVVDEC"; then
-    do_patch "https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/vvdec/0001-TypeDef-cast-mem-cpy-set-this-.-with-void-to-silence.patch" am
-    do_patch "https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/vvdec/0002-CodingStructure-cast-memset-with-void-to-silence-non.patch" am
     do_uninstall include/vvdec lib/cmake/vvdec "${_check[@]}"
     do_cmakeinstall video -DVVDEC_ENABLE_LINK_TIME_OPT=ON -DVVDEC_INSTALL_VVDECAPP=ON \
         -DVVDEC_OPT_TARGET_ARCH=znver5
@@ -3289,6 +3288,7 @@ fi
 _check=(bin-video/ffmbc.exe)
 if [[ $ffmbc = y ]] && do_vcs "$SOURCE_REPO_FFMBC"; then
     _notrequired=true
+    do_patch "https://github.com/bcoudurier/FFmbc/compare/ffmbc...1480c1:shr-ffmbc.patch" am
     create_build_dir
     # Too many errors with GCC 15 due to really old code.
     CFLAGS+=" -Wno-error=incompatible-pointer-types" \
