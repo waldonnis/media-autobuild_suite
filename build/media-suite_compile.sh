@@ -639,7 +639,7 @@ if { { [[ $ffmpeg != no || $standalone = y ]] && enabled libtesseract; } ||
         fi
         grep_or_sed 'Requires.private' libtiff-4.pc.in \
             '/Libs:/ a\Requires.private: libjpeg liblzma zlib libzstd glut'
-        CFLAGS+=" -DFREEGLUT_STATIC" \
+        LDFLAGS+=" $($PKG_CONFIG --libs zlib)" CFLAGS+=" -DFREEGLUT_STATIC $($PKG_CONFIG --cflags zlib)" \
             do_cmakeinstall global -D{webp,jbig,lerc}=OFF "${extracommands[@]}"
         do_checkIfExist
         unset extracommands
@@ -1361,7 +1361,8 @@ if { [[ $rav1e = y ]] || [[ $libavif = y ]] || enabled librav1e; } &&
 
     # standalone binary
     if [[ $rav1e = y || $standalone = y || $av1an = y ]]; then
-        do_rust --profile release
+        PKG_CONFIG="$LOCALDESTDIR/bin/ab-pkg-config-static.bat" \
+            do_rust --profile release
         find "target/$CARCH-pc-windows-gnu$rust_target_suffix" -name "rav1e.exe" | while read -r f; do
             do_install "$f" bin-video/
         done
