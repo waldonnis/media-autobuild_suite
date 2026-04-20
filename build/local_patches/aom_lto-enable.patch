@@ -1,9 +1,9 @@
-diff --git a/build/cmake/aom_configure.cmake b/build/cmake/aom_configure.cmake
-index 07e354a6..cc6b9219 100644
---- a/build/cmake/aom_configure.cmake
-+++ b/build/cmake/aom_configure.cmake
-@@ -360,6 +360,7 @@ else()
-   add_compiler_flag_if_supported("-Wvla")
+diff --git a/cmake/aom_configure.cmake b/cmake/aom_configure.cmake
+index d5cd4db5..9c6472b5 100644
+--- a/cmake/aom_configure.cmake
++++ b/cmake/aom_configure.cmake
+@@ -372,6 +372,7 @@ else()
+   add_c_flag_if_supported("-Wc23-extensions")
    add_cxx_flag_if_supported("-Wc++20-extensions")
    add_cxx_flag_if_supported("-Wc++23-extensions")
 +  add_compiler_flag_if_supported("-flto=auto")
