@@ -92,6 +92,9 @@ done
 
 # shellcheck source=media-suite_deps.sh
 source "$LOCALBUILDDIR"/media-suite_deps.sh
+if [[ -f "$LOCALBUILDDIR"/media-suite_deps_extra.sh ]]; then
+    source "$LOCALBUILDDIR"/media-suite_deps_extra.sh
+fi
 
 # shellcheck source=media-suite_helper.sh
 source "$LOCALBUILDDIR"/media-suite_helper.sh
@@ -130,15 +133,66 @@ create_ab_ccache
 set_title "compiling global tools"
 do_simple_print -p '\n\t'"${orange}Starting $bits compilation of global tools${reset}"
 
-if [[ $bits = 32bit && $av1an = y ]]; then
-    do_simple_print "${orange}Av1an cannot be compiled due to Vapoursynth being broken on 32-bit and will be disabled"'!'"${reset}"
-    _reenable_av1an=$av1an # so that av1an can be built if both 32 bit and 64 bit targets are enabled
-    av1an=n
+rust_wanted=false
+rust_packages=(ripgrep rav1e dssim libavif dovitool hdr10plustool av1an)
+if [[ "$ripgrep|$rav1e|$dssim|$libavif|$dovitool|$hdr10plustool|$av1an" = *y* ]] ||
+    [[ $gifski != n ]] || [[ $zlib = rs ]] || enabled librav1e; then
+    rust_wanted=true
 fi
 
-if [[ ! -z $_reenable_av1an ]] && [[ $bits = 64bit ]]; then
-    av1an=$_reenable_av1an
-    unset _reenable_av1an
+if [[ $bits = 32bit ]] && $rust_wanted; then
+    do_simple_print "${orange}Rust packages cannot be compiled on 32-bit systems due to its removal from msys2"'!'"${reset}"
+    for package in "${rust_packages[@]}"; do
+        if [[ ${!package} = y ]]; then
+            declare "_reenable_$package=${!package}" "$package=n"
+        fi
+    done
+
+    # the rest are special cases as they aren't just y/n
+    if [[ $gifski != n ]]; then
+        _reenable_gifski=$gifski
+        gifski=n
+    fi
+    if [[ $zlib = rs ]]; then
+        _reenable_zlib=$zlib
+        zlib=n
+    fi
+
+    if enabled librav1e; then
+        _reenable_librav1e=y
+        do_removeOption --enable-librav1e
+    fi
+    rust_wanted=false
+fi
+
+# reenable rust packages if they were disabled due to 32-bit compilation
+if [[ $bits = 64bit ]]; then
+    for package in "${rust_packages[@]}"; do
+        local reenable_var="_reenable_$package"
+        if [[ ${!package} = n && -n ${!reenable_var} ]]; then
+            declare "$package=${!reenable_var}"
+            rust_wanted=true
+            unset "$reenable_var"
+        fi
+    done
+
+    if [[ $gifski = n && -n $_reenable_gifski ]]; then
+        gifski=$_reenable_gifski
+        rust_wanted=true
+        unset _reenable_gifski
+    fi
+
+    if [[ $zlib = n && -n $_reenable_zlib ]]; then
+        zlib=$_reenable_zlib
+        rust_wanted=true
+        unset _reenable_zlib
+    fi
+
+    if [[ ${_reenable_librav1e:-} = y ]]; then
+        do_addOption --enable-librav1e
+        rust_wanted=true
+        unset _reenable_librav1e
+    fi
 fi
 
 if [[ $packing = y &&
@@ -148,8 +202,7 @@ if [[ $packing = y &&
     do_install upx.exe /opt/bin/upx.exe
 fi
 
-if [[ "$ripgrep|$rav1e|$dssim|$libavif|$dovitool|$hdr10plustool" = *y* ]] ||
-    [[ $av1an = y ]] || [[ $gifski != n ]] || [[ $zlib = rs ]] || enabled librav1e; then
+if $rust_wanted; then
     do_pacman_install rust
     [[ $CC =~ clang ]] && rust_target_suffix="llvm"
 fi
@@ -197,6 +250,7 @@ else
                 -e 's/${zlib_static_suffix}//' \
                 -e 's/zlib.h)/zlib.h chromeconf.h)/' \
                 -i CMakeLists.txt
+            sed -i 's|#include "chromeconf.h"||' zconf.h
             grep_or_sed 'string.h' contrib/bench/zlib_bench.cc 's/#include <stdlib.h>/#include <stdlib.h>\n#include <string.h>/'
             # the win32 dir is missing, so copy the folder from original zlib
             do_wget -c -r -q "https://github.com/madler/zlib/archive/refs/heads/develop.tar.gz"
@@ -246,7 +300,7 @@ else
             sed -e 's;libz_rs;libz;' -e 's;z_rs;z;' -i Cargo.toml
             PKG_CONFIG="$LOCALDESTDIR/bin/ab-pkg-config-static.bat" \
                 log "rust.capi" cargo capi build \
-                --release --jobs "$cpuCount" --prefix="$LOCALDESTDIR"
+                --release --jobs "$cpuCount" --prefix="$LOCALDESTDIR" -F gz
             do_install "target/$CARCH-pc-windows-gnu$rust_target_suffix/release/libz.a" libz.a
             do_install "target/$CARCH-pc-windows-gnu$rust_target_suffix/release/libz.pc" zlib.pc
             do_checkIfExist
@@ -637,6 +691,9 @@ if { { [[ $ffmpeg != no || $standalone = y ]] && enabled libtesseract; } ||
         else
             extracommands+=("-Dtiff-tools=OFF")
         fi
+        sed -i 's;message(FATAL_ERROR "The imported target;message(WARNING "The imported target;' \
+        "$MINGW_PREFIX"/lib/cmake/libjpeg-turbo/libjpeg-turboTargets.cmake
+        sed -ri 's/libjpeg-turbo::(|turbo)jpeg/&-static/' cmake/JPEGCodec.cmake
         grep_or_sed 'Requires.private' libtiff-4.pc.in \
             '/Libs:/ a\Requires.private: libjpeg liblzma zlib libzstd glut'
         LDFLAGS+=" $($PKG_CONFIG --libs zlib)" CFLAGS+=" -DFREEGLUT_STATIC $($PKG_CONFIG --cflags zlib)" \
@@ -663,7 +720,8 @@ if [[ $ffmpeg != no || $standalone = y ]] && enabled libwebp; then
         else
             extracommands+=(-DWEBP_BUILD_{{C,D,GIF2,IMG2,V}WEBP,ANIM_UTILS,WEBPMUX}"=OFF")
         fi
-        CFLAGS+=" -DFREEGLUT_STATIC" \
+        CFLAGS+=" -DFREEGLUT_STATIC $($PKG_CONFIG --cflags zlib)" \
+            LDFLAGS+=" $($PKG_CONFIG --libs zlib)" \
             do_cmakeinstall global -DWEBP_ENABLE_SWAP_16BIT_CSP=ON "${extracommands[@]}"
         do_checkIfExist
         unset extracommands
@@ -689,7 +747,8 @@ if [[ $jpegxl = y ]] || { [[ $ffmpeg != no ]] && enabled libjxl; }; then
         do_uninstall "${_check[@]}" include/jxl bin-global/cjpegli.exe bin-global/djpegli.exe 
         extracommands=()
         [[ $jpegxl = y ]] || extracommands=("-DJPEGXL_ENABLE_TOOLS=OFF")
-        CXXFLAGS+=" -DJXL_CMS_STATIC_DEFINE -DJXL_STATIC_DEFINE -DJXL_THREADS_STATIC_DEFINE" \
+        CXXFLAGS+=" -DJXL_CMS_STATIC_DEFINE -DJXL_STATIC_DEFINE -DJXL_THREADS_STATIC_DEFINE $($PKG_CONFIG --cflags zlib)" \
+            LDFLAGS+=" $($PKG_CONFIG --libs zlib)" \
             do_cmakeinstall global -D{BUILD_TESTING,JPEGXL_ENABLE_{BENCHMARK,DOXYGEN,MANPAGES,OPENEXR,SKCMS,EXAMPLES,JPEGLI}}=OFF \
             -DJPEGXL_{FORCE_SYSTEM_{BROTLI,LCMS2},STATIC}=ON "${extracommands[@]}"
         do_checkIfExist
@@ -756,15 +815,28 @@ if [[ $ffmpeg != no || $standalone = y ]] && enabled libtesseract; then
     _check=(libtesseract.{,l}a tesseract.pc)
     if do_vcs "$SOURCE_REPO_TESSERACT"; then
         do_pacman_install docbook-xsl omp
-        # Reverts a commit that breaks the pkgconfig file
-        {
-            git revert --no-edit b4a4f5c || git revert --abort
-        } > /dev/null 2>&1
         do_autogen
         _check+=(bin-global/tesseract.exe)
         do_uninstall include/tesseract "${_check[@]}"
-        sed -i 's|Requires.private.*|& libarchive iconv libtiff-4|' tesseract.pc.in
+        sed -i 's|Requires.private.*|& libarchive iconv libtiff-4 zlib|' tesseract.pc.in
         grep_or_sed ws2_32 "$MINGW_PREFIX/lib/pkgconfig/libarchive.pc" 's;Libs.private:.*;& -lws2_32;g'
+        grep_or_sed crypt32 "$MINGW_PREFIX/lib/pkgconfig/libarchive.pc" 's;Libs.private:.*;& -lcrypt32;g'
+        # Replace the manual -l flags with proper requirements
+        grep_and_sed '-lz([[:space:]]+|$)' "$MINGW_PREFIX/lib/pkgconfig/libarchive.pc"  's;[[:space:]]+-lz([[:space:]]+|$); ;g;s;Requires.private:.*;& zlib;g'
+        grep_and_sed '-lbz2 ' "$MINGW_PREFIX/lib/pkgconfig/libarchive.pc"  's;[[:space:]]+-lbz2([[:space:]]+|$); ;g;s;Requires.private:.*;& bzip2;g'
+        grep_and_sed '-llzma ' "$MINGW_PREFIX/lib/pkgconfig/libarchive.pc"  's;[[:space:]]+-llzma([[:space:]]+|$); ;g;s;Requires.private:.*;& liblzma;g'
+        grep_and_sed '-lb2 ' "$MINGW_PREFIX/lib/pkgconfig/libarchive.pc"  's;[[:space:]]+-lb2([[:space:]]+|$); ;g;s;Requires.private:.*;& libb2;g'
+        grep_and_sed '-llz4 ' "$MINGW_PREFIX/lib/pkgconfig/libarchive.pc"  's;[[:space:]]+-llz4([[:space:]]+|$); ;g;s;Requires.private:.*;& liblz4;g'
+        grep_and_sed '-lzstd ' "$MINGW_PREFIX/lib/pkgconfig/libarchive.pc"  's;[[:space:]]+-lzstd([[:space:]]+|$); ;g;s;Requires.private:.*;& libzstd;g'
+        grep_and_sed '-lcrypto ' "$MINGW_PREFIX/lib/pkgconfig/libarchive.pc"  's;[[:space:]]+-lcrypto([[:space:]]+|$); ;g;s;Requires.private:.*;& libcrypto;g'
+        grep_and_sed '-liconv ' "$MINGW_PREFIX/lib/pkgconfig/libarchive.pc"  's;[[:space:]]+-liconv([[:space:]]+|$); ;g;s;Requires.private:.*;& iconv;g'
+        grep_and_sed '-lexpat ' "$MINGW_PREFIX/lib/pkgconfig/libarchive.pc"  's;[[:space:]]+-lexpat([[:space:]]+|$); ;g;s;Requires.private:.*;& expat;g'
+        grep_and_sed '-lpcre2-posix ' "$MINGW_PREFIX/lib/pkgconfig/libarchive.pc"  's;[[:space:]]+-lpcre2-posix([[:space:]]+|$); ;g;s;Requires.private:.*;& libpcre2-posix;g'
+        grep_and_sed '-lssl' "$MINGW_PREFIX/lib/pkgconfig/libarchive.pc"  's;[[:space:]]+-lssl([[:space:]]+|$); ;g;s;Requires.private:.*;& libssl;g'
+        sed -Ei 's;[[:space:]]+; ;g' "$MINGW_PREFIX/lib/pkgconfig/libarchive.pc"
+
+        # Fixup some __imp_zlib related symbols, but in libz.a.
+        fix_impsyms "$MINGW_PREFIX/lib/libarchive.a" libarchive
         case $CC in
         *clang) sed -i -e 's|Libs.private.*|& -fopenmp=libomp|' tesseract.pc.in ;;
         *) sed -i -e 's|Libs.private.*|& -fopenmp -lgomp|' tesseract.pc.in ;;
@@ -772,7 +844,7 @@ if [[ $ffmpeg != no || $standalone = y ]] && enabled libtesseract; then
         do_separate_confmakeinstall global --disable-{graphics,tessdata-prefix} \
             --without-curl \
             LIBLEPT_HEADERSDIR="$LOCALDESTDIR/include" \
-            LIBS="$($PKG_CONFIG --libs iconv lept libtiff-4)" --datadir="$LOCALDESTDIR/bin-global"
+            LIBS="$($PKG_CONFIG --libs iconv lept libtiff-4 libarchive)" --datadir="$LOCALDESTDIR/bin-global"
         if [[ ! -f $LOCALDESTDIR/bin-global/tessdata/eng.traineddata ]]; then
             do_pacman_install tesseract-data-eng
             mkdir -p "$LOCALDESTDIR"/bin-global/tessdata
@@ -1063,6 +1135,10 @@ if [[ $ffmpeg != no ]] && enabled libgme &&
     do_vcs "$SOURCE_REPO_LIBGME"; then
     do_uninstall include/gme "${_check[@]}"
     do_cmakeinstall -DENABLE_UBSAN=OFF
+    grep_and_sed '-lz' "$LOCALDESTDIR/lib/pkgconfig/libgme.pc" \
+        '/Version:/a\
+Requires: zlib
+s|[[:blank:]]*-lz||'
     do_checkIfExist
 fi
 
@@ -1310,11 +1386,7 @@ if { [[ $aom = y ]] || [[ $libavif = y ]] || { [[ $ffmpeg != no ]] && enabled li
     do_pacman_install yasm
     do_patch "https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/aom/0001-CMake-Add-ENABLE_EXTRA_EXAMPLES.patch" am
     extracommands=("-DENABLE_EXTRA_EXAMPLES=off")
-    if [[ $aom = y || $standalone = y || $av1an = y ]]; then
-        # fix google's shit
-        sed -ri 's;_PREFIX.+CMAKE_INSTALL_BINDIR;_FULL_BINDIR;' \
-            build/cmake/aom_install.cmake
-    else
+    if [[ $aom != y ]] && [[ $standalone != y ]] && [[ $av1an != y ]]; then
         extracommands+=("-DENABLE_EXAMPLES=off")
     fi
     do_uninstall include/aom "${_check[@]}"
@@ -1489,7 +1561,8 @@ if { [[ $ffmpeg != no ]] && enabled libbluray; } || ! mpv_disabled libbluray; th
         sed -ri 's;bin_PROGRAMS.*;bin_PROGRAMS = ;' Makefile.am
         do_autoreconf
         do_uninstall "${_check[@]}" include/libaacs
-        do_separate_confmakeinstall video --enable-shared --with-libgcrypt-prefix="$MINGW_PREFIX"
+        GPGRT_CONFIG="$(which gpgrt-config) --static" \
+            do_separate_confmakeinstall video --enable-shared --with-libgcrypt-prefix="$MINGW_PREFIX"
         mv -f "$LOCALDESTDIR/bin/libaacs-0.dll" "$LOCALDESTDIR/bin-video/libaacs.dll"
         rm -f "$LOCALDESTDIR/bin-video/${MINGW_CHOST}-aacs_info.exe"
         do_checkIfExist
@@ -1509,6 +1582,7 @@ fi
 _check=(libbluray.{a,pc})
 if { { [[ $ffmpeg != no ]] && enabled libbluray; } || ! mpv_disabled libbluray; } &&
     do_vcs "$SOURCE_REPO_LIBBLURAY"; then
+    do_patch "https://gitlab.com/m-ab-s/libbluray/-/commit/92813268bd2de33ddc9a94143869eb9212521701.patch" am
     [[ -f contrib/libudfread/.git ]] || do_git_submodule
     do_uninstall include/libbluray share/java "${_check[@]}" libbluray.la
     sed -i 's|__declspec(dllexport)||g' jni/win32/jni_md.h
@@ -1836,13 +1910,14 @@ if [[ $x264 != no ]] ||
             files_exist "${_check[@]}" && touch "build_successful${bits}_light"
             unset_extra_script
 
+            _deps=("$zlib_dir"/lib/libz.a)
             _check=("$LOCALDESTDIR"/opt/lightffmpeg/lib/pkgconfig/ffms2.pc bin-video/ffmsindex.exe)
             if do_vcs "$SOURCE_REPO_FFMS2"; then
                 do_uninstall "${_check[@]}"
                 sed -i 's/Cflags.*/& -DFFMS_STATIC/' ffms2.pc.in
                 mkdir -p src/config
                 do_autoreconf
-                do_separate_confmakeinstall video --prefix="$LOCALDESTDIR/opt/lightffmpeg"
+                do_separate_confmakeinstall video --prefix="$LOCALDESTDIR/opt/lightffmpeg" --with-zlib="$zlib_dir"
                 do_checkIfExist
             fi
             cd_safe "$LOCALBUILDDIR"/x264-git
@@ -2172,11 +2247,13 @@ if [[ $bits = 64bit && $vvc = y ]] &&
     unset _notrequired
 fi
 
-_check=(bin-video/uvg266.exe libuvg266.a uvg266.pc uvg266.h)
+_check=(bin-video/uvg266.exe libuvg266.a uvg266.pc uvg266/uvg266.h)
 if [[ $bits = 64bit && $uvg266 = y ]] &&
     do_vcs "$SOURCE_REPO_UVG266"; then
-    do_uninstall version.h "${_check[@]}"
-    CFLAGS+=" -DUVG_BIT_DEPTH=16 " do_cmakeinstall video -DBUILD_TESTING=OFF
+    do_uninstall include/uvg266 "${_check[@]}"
+    grep_or_sed __MINGW32__ src/uvg266.h 's;UVG_STATIC_LIB.*;& || defined(__MINGW32__);'
+    # -DBUILD_SHARED_LIBS is now ignored, have to set it manually
+    CFLAGS+=" -DUVG_BIT_DEPTH=16 " do_cmakeinstall video -DUVG_BUILD_TESTS=OFF -DUVG_BUILD_SHARED=OFF -DUVG_BUILD_STATIC=on
     do_checkIfExist
 fi
 
@@ -2374,6 +2451,7 @@ if enabled libcdio || mpv_enabled cdda; then
 fi
 
 if [[ $ffmpeg != no ]]; then
+    do_pacman_install texinfo
     enabled libgsm && do_pacman_install gsm
     enabled libsnappy && do_pacman_install snappy
     if enabled libxvid && [[ $standalone = n ]]; then
@@ -2389,6 +2467,8 @@ if [[ $ffmpeg != no ]]; then
     fi
     enabled libtheora && do_pacman_install libtheora
     enabled libcaca && do_addOption --extra-cflags=-DCACA_STATIC && do_pacman_install libcaca
+    grep_and_sed '-lz' "$MINGW_PREFIX"/lib/pkgconfig/caca.pc \
+        '/Requires:/s|[[:blank:]]*$| zlib|;s|[[:blank:]]+-lz||'
     enabled libmodplug && do_addOption --extra-cflags=-DMODPLUG_STATIC && do_pacman_install libmodplug
     enabled libopenjpeg && do_pacman_install openjpeg2
     if enabled libopenh264; then
