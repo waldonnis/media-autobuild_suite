@@ -1686,12 +1686,14 @@ if [[ $dovitool = y ]] &&
     do_checkIfExist
 fi
 
-_check=(bin-video/hdr10plus_tool.exe)
+_check=(libhdr10plus-rs.a libhdr10plus-rs/hdr10plus.h hdr10plus-rs.pc bin-video/hdr10plus_tool.exe)
 if [[ $hdr10plustool = y ]] &&
     do_vcs "$SOURCE_REPO_HDR10PLUS_TOOL"; then
     do_uninstall "${_check[@]}"
     RUSTFLAGS="-C target-cpu=znver5" do_rust
     do_install "target/$CARCH-pc-windows-gnu$rust_target_suffix/release/hdr10plus_tool.exe" bin-video/
+    cd hdr10plus
+    RUSTFLAGS="-C target-cpu=znver5" do_rustcinstall --bindir="$LOCALDESTDIR"/bin-video/ --library-type=staticlib
     do_checkIfExist
 fi
 
