@@ -838,7 +838,7 @@ if [[ $ffmpeg != no || $standalone = y ]] && enabled libtesseract; then
         sed -Ei 's;[[:space:]]+; ;g' "$MINGW_PREFIX/lib/pkgconfig/libarchive.pc"
 
         # Fixup some __imp_zlib related symbols, but in libz.a.
-        fix_impsyms "$MINGW_PREFIX/lib/libarchive.a" libarchive
+        #fix_impsyms "$MINGW_PREFIX/lib/libarchive.a" libarchive
         case $CC in
         *clang) sed -i -e 's|Libs.private.*|& -fopenmp=libomp|' tesseract.pc.in ;;
         *) sed -i -e 's|Libs.private.*|& -fopenmp -lgomp|' tesseract.pc.in ;;
