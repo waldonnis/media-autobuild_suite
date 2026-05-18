@@ -1682,7 +1682,7 @@ if [[ $dovitool = y ]] &&
     RUSTFLAGS="-C target-cpu=znver5" do_rust
     do_install "target/$CARCH-pc-windows-gnu$rust_target_suffix/release/dovi_tool.exe" bin-video/
     cd dolby_vision
-    RUSTFLAGS="-C target-cpu=znver5" do_rustcinstall --bindir="$LOCALDESTDIR"/bin-video/ --library-type=staticlib
+    RUSTFLAGS="-C target-cpu=znver5" do_rustcinstall --bindir="$LOCALDESTDIR"/bin-video/ --library-type=staticlib --config profile.release.lto=\"off\"
     do_checkIfExist
 fi
 
@@ -1693,7 +1693,7 @@ if [[ $hdr10plustool = y ]] &&
     RUSTFLAGS="-C target-cpu=znver5" do_rust
     do_install "target/$CARCH-pc-windows-gnu$rust_target_suffix/release/hdr10plus_tool.exe" bin-video/
     cd hdr10plus
-    RUSTFLAGS="-C target-cpu=znver5" do_rustcinstall --bindir="$LOCALDESTDIR"/bin-video/ --library-type=staticlib
+    RUSTFLAGS="-C target-cpu=znver5" do_rustcinstall --bindir="$LOCALDESTDIR"/bin-video/ --library-type=staticlib --config profile.release.lto=\"off\"
     do_checkIfExist
 fi
 
