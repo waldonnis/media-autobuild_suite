@@ -1283,6 +1283,30 @@ if [[ $ffmpeg != no ]] && enabled liblc3 &&
     do_checkIfExist
 fi
 
+_check=(libmpeghdec.a mpeghdec.pc mpeghdec/{mpeghexport,mpeghdecoder}.h)
+[[ $standalone = y ]] && _check+=(mpeghdec/mpeghUIManager.h
+    bin-audio/{mpeghDecoder,mpeghUiManager}.exe)
+if [[ $ffmpeg != no ]] && enabled libmpeghdec &&
+    do_vcs "$SOURCE_REPO_MPEGHDEC"; then
+    do_uninstall include/mpeghdec "${_check[@]}"
+    if [[ $standalone = y ]]; then
+        extracommands=(-Dmpeghdec_BUILD_BINARIES=ON -Dmpeghdec_BUILD_UIMANAGER=ON)
+    else
+        extracommands=(-Dmpeghdec_BUILD_BINARIES=OFF -Dmpeghdec_BUILD_UIMANAGER=OFF)
+    fi
+    do_cmakeinstall "${extracommands[@]}" -DCMAKE_INSTALL_DATAROOTDIR=lib
+    # Avoid bundled FDK symbol collisions with libfdk-aac.
+    if enabled libfdk-aac; then
+        prefix_archive_symbols "$LOCALDESTDIR/lib/libmpeghdec.a" \
+            mpeghdec_private_ '^_?(mpeghdecoder_|mpegh_UI_)'
+    fi
+    [[ $standalone = y ]] &&
+        do_install bin/{mpeghDecoder,mpeghUiManager}.exe bin-audio/
+    sed -i 's/^Cflags:.*/& -DMPEGHDEC_STATIC/' "$LOCALDESTDIR/lib/pkgconfig/mpeghdec.pc"
+    do_checkIfExist
+    unset extracommands
+fi
+
 _check=(bin/atw_ldwrapper libAudioToolboxWrapper.a)
 if [[ $ffmpeg != no ]] && enabled audiotoolbox; then
     _qtfiles_url="https://github.com/AnimMouse/QTFiles/releases/download/v12.10.11"
@@ -1589,7 +1613,6 @@ fi
 _check=(libbluray.{a,pc})
 if { { [[ $ffmpeg != no ]] && enabled libbluray; } || ! mpv_disabled libbluray; } &&
     do_vcs "$SOURCE_REPO_LIBBLURAY"; then
-    do_patch "https://gitlab.com/m-ab-s/libbluray/-/commit/92813268bd2de33ddc9a94143869eb9212521701.patch" am
     [[ -f contrib/libudfread/.git ]] || do_git_submodule
     do_uninstall include/libbluray share/java "${_check[@]}" libbluray.la
     sed -i 's|__declspec(dllexport)||g' jni/win32/jni_md.h
@@ -1646,7 +1669,7 @@ _check=(libxavs2.a xavs2_config.h xavs2.{h,pc})
 [[ $standalone = y ]] && _check+=(bin-video/xavs2.exe)
 if [[ $bits = 32bit ]]; then
     do_removeOption --enable-libxavs2
-elif { [[ $avs2 = y ]] || { [[ $ffmpeg != no ]] && enabled libxavs2; }; } &&
+elif { [[ $avs2 != n ]] || { [[ $ffmpeg != no ]] && enabled libxavs2; }; } &&
     do_vcs "$SOURCE_REPO_XAVS2"; then
     do_patch "https://github.com/pkuvcl/xavs2/compare/master...1480c1:xavs2:gcc14/pointerconversion.patch" am
     cd_safe build/linux
@@ -1659,17 +1682,24 @@ fi
 
 _check=(libdavs2.a davs2_config.h davs2.{h,pc})
 [[ $standalone = y ]] && _check+=(bin-video/davs2.exe)
+davs2_repo=$SOURCE_REPO_DAVS
+extracommands=()
+if [[ $avs2 = 10bit ]]; then
+    davs2_repo=$SOURCE_REPO_DAVS10bit
+    extracommands+=(--bit-depth=10)
+fi
 if [[ $bits = 32bit ]]; then
     do_removeOption --enable-libdavs2
-elif { [[ $avs2 = y ]] || { [[ $ffmpeg != no ]] && enabled libdavs2; }; } &&
-    do_vcs "$SOURCE_REPO_DAVS"; then
+elif { [[ $avs2 != n ]] || { [[ $ffmpeg != no ]] && enabled libdavs2; }; } &&
+    do_vcs "$davs2_repo"; then
     cd_safe build/linux
     [[ -f config.mak ]] && log "distclean" make distclean
     do_uninstall all "${_check[@]}"
-    do_configure --bindir="$LOCALDESTDIR"/bin-video --enable-strip
+    do_configure --bindir="$LOCALDESTDIR"/bin-video --enable-strip "${extracommands[@]}"
     do_makeinstall
     do_checkIfExist
 fi
+unset davs2_repo extracommands
 
 _check=(libuavs3d.a uavs3d.{h,pc})
 [[ $standalone = y ]] && _check+=(bin-video/uavs3dec.exe)
@@ -2393,15 +2423,14 @@ if { [[ $mpv != n ]] ||
     do_vcs "$SOURCE_REPO_SPIRV_CROSS"; then
     do_uninstall include/spirv_cross "${_check[@]}" spirv-cross-c-shared.pc libspirv-cross-c-shared.a
     do_patch "https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/SPIRV-Cross/0001-add-a-basic-Meson-build-system-for-use-as-a-subproje.patch" am
-    sed -i 's/0.13.0/0.48.0/' meson.build
     do_mesoninstall
     do_checkIfExist
 fi
 
-_check=(lib{glslang,OSDependent}.a
+_check=(bin/glslangValidator.exe lib{glslang,OSDependent}.a
         libSPIRV{,-Tools{,-opt,-link,-reduce}}.a glslang/SPIRV/GlslangToSpv.h)
 if { [[ $mpv != n ]] ||
-     { [[ $ffmpeg != no ]] && enabled_any libplacebo libglslang libshaderc vulkan; } } &&
+     { [[ $ffmpeg != no ]] && enabled_any vulkan libplacebo; } } &&
     do_vcs "$SOURCE_REPO_GLSLANG"; then
     do_uninstall libHLSL.a "${_check[@]}"
     sed -i "s|command_output(\['git', 'clone',|command_output(\['git', 'clone', '--filter=tree:0',|" ./update_glslang_sources.py
@@ -2412,7 +2441,7 @@ fi
 
 _check=(shaderc/shaderc.h libshaderc_combined.a)
 if { [[ $mpv != n ]] ||
-     { [[ $ffmpeg != no ]] && enabled_any libplacebo libshaderc; } } ||
+     { [[ $ffmpeg != no ]] && enabled libplacebo; } } ||
      ! mpv_disabled shaderc &&
     do_vcs "$SOURCE_REPO_SHADERC"; then
     do_patch "https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/shaderc/0001-third_party-set-INSTALL-variables-as-cache.patch" am
@@ -2460,7 +2489,7 @@ if enabled libcdio || mpv_enabled cdda; then
 fi
 
 if [[ $ffmpeg != no ]]; then
-    do_pacman_install texinfo
+    do_pacman_install -m texinfo
     enabled libgsm && do_pacman_install gsm
     enabled libsnappy && do_pacman_install snappy
     if enabled libxvid && [[ $standalone = n ]]; then
@@ -2470,9 +2499,9 @@ if [[ $ffmpeg != no ]]; then
     fi
     if enabled libssh; then
         do_pacman_install libssh
-        do_addOption --extra-cflags=-DLIBSSH_STATIC "--extra-ldflags=-Wl,--allow-multiple-definition"
-        grep_or_sed "Requires.private" "$MINGW_PREFIX"/lib/pkgconfig/libssh.pc \
-            "/Libs:/ i\Requires.private: zlib libssl"
+        do_addOption --extra-cflags=-DLIBSSH_STATIC
+        grep_or_sed "Requires.private:.*libssl" "$MINGW_PREFIX"/lib/pkgconfig/libssh.pc \
+            $'/^Libs:/ i\\\nRequires.private: libssl libcrypto zlib\\\nLibs.private: -liphlpapi -lws2_32 -lpthread'
     fi
     enabled libtheora && do_pacman_install libtheora
     enabled libcaca && do_addOption --extra-cflags=-DCACA_STATIC && do_pacman_install libcaca
@@ -2604,10 +2633,6 @@ if [[ $ffmpeg != no ]]; then
             grep_and_sed '__declspec(__dllimport__)' "$MINGW_PREFIX"/include/gmp.h \
                 's|__declspec\(__dllimport__\)||g' "$MINGW_PREFIX"/include/gmp.h
         fi
-
-        enabled vulkan && ! enabled_any libshaderc libglslang && do_addOption --enable-libglslang
-        enabled_all libshaderc libglslang && do_removeOption --enable-libglslang
-        enabled libshaderc && sed -ri 's/(require_pkg_config spirv_library "shaderc) >/\1_combined >/' configure
 
         _patches=$(git rev-list $ff_base_commit.. --count)
         if [[ $_patches -gt 0 ]]; then
