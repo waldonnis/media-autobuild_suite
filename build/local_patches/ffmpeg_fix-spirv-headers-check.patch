@@ -1,0 +1,20 @@
+diff --git a/configure b/configure
+index f2896b81c..74c95658e 100755
+--- a/configure
++++ b/configure
+@@ -2465,6 +2465,7 @@ HEADERS_LIST="
+     winsock2_h
+     spirv_headers_spirv_h
+     spirv_unified1_spirv_h
++    spirv_cross_spirv_h
+ "
+ 
+ INTRINSICS_LIST="
+@@ -7837,6 +7838,7 @@ fi
+ if enabled vulkan; then
+     check_headers spirv-headers/spirv.h ||
+     check_headers spirv/unified1/spirv.h ||
++    check_headers spirv_cross/spirv.h ||
+     { requested vulkan && warn "spirv-headers not found, swscale SPIR-V backend unavailable"; }
+ fi
+ 
