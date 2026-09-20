@@ -1877,9 +1877,6 @@ fi
 
 _check=(libvpl.a vpl.pc)
 if [[ $ffmpeg != no ]] && enabled libvpl; then
-    if enabled libmfx; then
-        do_removeOption --enable-libmfx
-    fi
     if do_vcs "$SOURCE_REPO_LIBVPL" libvpl; then
         do_patch https://github.com/intel/libvpl/pull/198.patch am
         if [[ $bits = 32bit ]]; then
@@ -1889,15 +1886,6 @@ if [[ $ffmpeg != no ]] && enabled libvpl; then
         do_cmakeinstall -DUNIX=OFF
         do_checkIfExist
     fi
-fi
-
-_check=(libmfx.{{,l}a,pc})
-if [[ $ffmpeg != no ]] && enabled libmfx &&
-    do_vcs "$SOURCE_REPO_LIBMFX" libmfx; then
-    do_autoreconf
-    do_uninstall include/mfx "${_check[@]}"
-    do_separate_confmakeinstall
-    do_checkIfExist
 fi
 
 _check=(AMF/core/Version.h)
@@ -2891,10 +2879,6 @@ if [[ $mpv != n ]] && pc_exists libavcodec libavformat libswscale libavfilter; t
         mpv_cflags=() mpv_ldflags=()
         if ! mpv_disabled manpage-build || mpv_enabled html-build; then
             do_pacman_install python-docutils
-        fi
-        if enabled libnpp && [[ -n "$CUDA_PATH" ]]; then
-            MPV_ARGS+=(-Dc_args="-I$(cygpath -sm "$CUDA_PATH")/include")
-            MPV_ARGS+=(-Dc_link_args="-L$(cygpath -sm "$CUDA_PATH")/lib/x64")
         fi
         mpv_enabled pdf-build && do_pacman_install python-rst2pdf
 
