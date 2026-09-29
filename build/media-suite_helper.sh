@@ -1,5 +1,5 @@
 #!/bin/bash
-# shellcheck disable=SC2154,SC2120,SC2119,SC2034,SC1090,SC1117,SC2030,SC2031
+# shellcheck disable=SC2154,SC2120,SC2119,SC2034,SC1090,SC2030,SC2031,SC2086,SC2016,SC2295,SC2046
 
 if [[ -z ${MSYS+x} ]]; then
     export MSYS=winsymlinks:nativestrict
@@ -534,8 +534,8 @@ do_strip() {
             file=""
         fi
         [[ $file ]] &&
-            { eval "${cmd[@]}" "$file" 2> /dev/null ||
-                eval "${cmd[@]}" "$file" -o "$file.stripped" 2> /dev/null; }
+            { "${cmd[@]}" "$file" 2> /dev/null ||
+                "${cmd[@]}" "$file" -o "$file.stripped" 2> /dev/null; }
         [[ -f ${file}.stripped ]] && mv -f "${file}"{.stripped,}
     done
 }
@@ -563,7 +563,7 @@ do_pack() {
         else
             file=""
         fi
-        [[ $file ]] && eval "${cmd[@]}" "$file"
+        [[ $file ]] && "${cmd[@]}" "$file"
     done
 }
 
@@ -1394,7 +1394,7 @@ zip_logs() {
             find . -maxdepth 1 -name "*.stripped.log" -o -name "*_options.txt" -o -name "media-suite_*.sh" \
                 -o -name "last_run" -o -name "media-autobuild_suite.ini" -o -name "diagnostics.txt" -o -name "patchedFolders"
         } | sort -uo failedFiles
-        7za -mx=9 a logs.zip -- @failedFiles > /dev/null && rm failedFiles
+        7z -mx=9 a logs.zip -- @failedFiles > /dev/null && rm failedFiles
     )
     # [[ ! -f $LOCALBUILDDIR/no_logs && $suiteMode = yes && $autouploadlogs = y ]] &&
     #     url="$(cd "$LOCALBUILDDIR" && /usr/bin/curl -sF'file=@logs.zip' https://0x0.st)"
@@ -1993,7 +1993,7 @@ hide_libressl() {
     local reverse=n
     local _f
     [[ $1 == "-R" ]] && reverse=y && shift
-    for _f in ${_hide_files[*]}; do
+    for _f in "${_hide_files[@]}"; do
         _f="$LOCALDESTDIR/$_f"
         if [[ $reverse == n ]]; then
             [[ -e $_f ]] && mv -f "$_f" "$_f.bak"

@@ -100,10 +100,9 @@ do if %%f lss 4 (
 set build=%instdir%\build
 if not exist %build% mkdir %build%
 
-set msyspackages=autoconf-archive autoconf-wrapper autogen automake-wrapper base dos2unix ^
-filesystem git libtool make msys2-runtime patch pacutils p7zip subversion unzip winpty
+set msyspackages=autoconf-archive autogen autotools base-devel pacutils unzip winpty
 
-set mingwpackages=ccache cmake dlfcn gettext-tools meson nasm ninja pkgconf
+set mingwpackages=7zip ccache cmake dlfcn gettext-tools git meson nasm ninja toolchain
 
 :: built-ins
 set ffmpeg_options_builtin=--disable-autodetect amf bzlib cuda cuda-llvm cuvid d3d11va d3d12va ^
@@ -824,11 +823,11 @@ if [0]==[%ffmpegPathINI%] (
     echo.
     echo. Using default ffmpeg source path: %defaultFFmpegPath%
     echo.
-    echo. If you want to use a custom source repository, add a line like this 
+    echo. If you want to use a custom source repository, add a line like this
     echo. to media-autobuild_suite.ini:
     echo.
     echo.     ffmpegPath=https://github.com/username/FFmpeg.git#branch=branchname
-    echo. 
+    echo.
     echo. or for a local repository like:
     echo.
     echo.     ffmpegPath=../myrepos/ffmpeg
@@ -1049,7 +1048,7 @@ if [0]==[%vlcINI%] (
     echo.
     echo. Note: compilation of VLC is currently broken, do not enable unless you know
     echo. what you are doing.
-    echo. 
+    echo.
     echo -------------------------------------------------------------------------------
     echo -------------------------------------------------------------------------------
     set /P buildvlc="Build vlc: "
@@ -1793,9 +1792,7 @@ for %%i in (%instdir%\msys64\usr\ssl\cert.pem) do if %%~zi==0 call :runBash cert
 rem installmingw
 rem extra package for clang
 if %CC%==clang (
-    set "mingwpackages=%mingwpackages% clang gcc-compat lld"
-) else (
-    set "mingwpackages=%mingwpackages% binutils gcc"
+    set "mingwpackages=%mingwpackages% gcc-compat"
 )
 if exist "%instdir%\msys64\etc\pac-mingw.pk" del "%instdir%\msys64\etc\pac-mingw.pk"
 for %%i in (%mingwpackages%) do echo.%%i>>%instdir%\msys64\etc\pac-mingw.pk
@@ -2012,8 +2009,7 @@ rem echo.ARCH_CFLAGS=" -mtune=generic" # performance related flags
     echo.source '/etc/profile.d/perlbin.sh'
     echo.PS1='\[\033[32m\]\u@\h \[\e[33m\]\w\[\e[0m\]\n\$ '
     echo.HOME="/home/${USERNAME}"
-    echo.GIT_GUI_LIB_DIR=`cygpath -w /usr/share/git-gui/lib`
-    echo.export LANG PATH PS1 HOME GIT_GUI_LIB_DIR
+    echo.export LANG PATH PS1 HOME
     echo.stty susp undef
     echo.test -f "$LOCALDESTDIR/etc/custom_profile" ^&^& source "$LOCALDESTDIR/etc/custom_profile"
 )>%instdir%\local64\etc\profile2.local
