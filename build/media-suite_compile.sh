@@ -1288,7 +1288,8 @@ _check=(libmpeghdec.a mpeghdec.pc mpeghdec/{mpeghexport,mpeghdecoder}.h)
     bin-audio/{mpeghDecoder,mpeghUiManager}.exe)
 if [[ $ffmpeg != no ]] && enabled libmpeghdec &&
     do_vcs "$SOURCE_REPO_MPEGHDEC"; then
-    do_patch "https://github.com/Fraunhofer-IIS/mpeghdec/compare/main...1480c1:mpeghdec:mabs.patch" am
+    # do_patch is choking on this patch so I'm applying a local renamed copy in an _extra script
+    #do_patch "https://github.com/Fraunhofer-IIS/mpeghdec/compare/main...1480c1:mpeghdec:mabs.patch" am
     do_uninstall include/mpeghdec "${_check[@]}"
     if [[ $standalone = y ]]; then
         extracommands=(-Dmpeghdec_BUILD_BINARIES=ON -Dmpeghdec_BUILD_UIMANAGER=ON)
