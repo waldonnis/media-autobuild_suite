@@ -908,7 +908,11 @@ if [[ $ffmpeg != no || $sox = y ]]; then
         do_pacman_install twolame
         do_addOption --extra-cflags=-DLIBTWOLAME_STATIC
     fi
-    enabled libmp3lame && do_pacman_install lame
+    if enabled libmp3lame; then
+        do_pacman_install lame
+        grep_or_sed 'libmpg123' "$MINGW_PREFIX/lib/pkgconfig/lame.pc" \
+            '/^Libs:/i Requires.private: libmpg123'
+    fi
 fi
 
 _check=(ilbc.h libilbc.{a,pc})
@@ -1174,17 +1178,26 @@ if [[ $sox = y ]]; then
         do_uninstall sox.{pc,h} bin-audio/{soxi,play,rec}.exe libsox.{,l}a "${_check[@]}"
         do_autoreconf
         extralibs=(-lshlwapi -lz)
-        enabled libmp3lame || extracommands+=(--without-lame)
+        extracflags=()
+        if enabled libmp3lame; then
+            mapfile -t -O "${#extralibs[@]}" extralibs < <($PKG_CONFIG --libs lame)
+            mapfile -t -O "${#extracflags[@]}" extracflags < <($PKG_CONFIG --cflags lame)
+        else
+            extracommands+=(--without-lame)
+        fi
         enabled_any libopencore-amr{wb,nb} &&
             extralibs+=(-lvo-amrwbenc) ||
             extracommands+=(--without-amr{wb,nb})
-        enabled libtwolame &&
-            extracommands+=(CFLAGS="$CFLAGS -DLIBTWOLAME_STATIC") ||
+        if enabled libtwolame; then
+            mapfile -t -O "${#extralibs[@]}" extralibs < <($PKG_CONFIG --libs twolame)
+            mapfile -t -O "${#extracflags[@]}" extracflags < <($PKG_CONFIG --cflags twolame)
+        else
             extracommands+=(--without-twolame)
+        fi
         enabled libvorbis || extracommands+=(--without-oggvorbis)
         hide_conflicting_libs
         sed -i 's|found_libgsm=yes|found_libgsm=no|g' configure
-        do_separate_conf --disable-symlinks ac_cv_lib_winmm_waveOutOpen=yes LIBS="-L$LOCALDESTDIR/lib ${extralibs[*]}" "${extracommands[@]}"
+        do_separate_conf --disable-symlinks ac_cv_lib_winmm_waveOutOpen=yes LIBS="-L$LOCALDESTDIR/lib ${extralibs[*]}" CFLAGS="${extracflags[*]} $CFLAGS" "${extracommands[@]}"
         do_make
         do_install src/sox.exe bin-audio/
         do_install sox.pc
@@ -2413,8 +2426,12 @@ if [[ $ffmpeg != no ]]; then
         fi
         unset _sha256 _openh264_ver
     fi
-    enabled chromaprint && do_addOption --extra-cflags=-DCHROMAPRINT_NODLL &&
-        { do_pacman_remove fftw; do_pacman_install chromaprint; }
+    if enabled chromaprint; then
+        do_pacman_remove fftw
+        do_pacman_install chromaprint
+        grep_or_sed 'CHROMAPRINT_NODLL' "$MINGW_PREFIX/lib/pkgconfig/libchromaprint.pc" \
+            $'/^Cflags:/a\\\nCflags.private: -DCHROMAPRINT_NODLL'
+    fi
     if enabled libzmq; then
         do_pacman_install zeromq
         grep_or_sed 'ZMQ_STATIC' "$MINGW_PREFIX/lib/pkgconfig/libzmq.pc" \
@@ -2472,7 +2489,10 @@ if [[ $ffmpeg != no ]]; then
         fi
         if enabled libvvdec; then
             do_patch "https://raw.githubusercontent.com/wiki/fraunhoferhhi/vvdec/data/patch/v9-libvvdec.patch"  ||
-                do_removeOptions --enable-libvvdec
+                {
+                    do_removeOption --enable-libvvdec
+                    do_removeOption FFMPEG_OPTS_SHARED "--enable-libvvdec"
+                }
         fi
 
         # Remove explicit include of DeckLinkAPI_v14_2_1.h since it's merged into the main file for Windows
