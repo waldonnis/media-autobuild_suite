@@ -20,7 +20,7 @@ For information about the compiler environment see the wiki, there you also have
 
 - FFmpeg (shared or static) with these libraries and features (all optional, but enabled by default unless said otherwise; subject to license and platform restrictions):
     - Light build:
-        - amf (AMD AMF headers, git)
+        - amf (AMD AMF headers, MSYS2 package)
         - bzlib (MSYS2 package)
         - cuda (built-in)
         - cuda-llvm (built-in)
@@ -129,6 +129,7 @@ For information about the compiler environment see the wiki, there you also have
         - libkvazaar (git)
         - lcms2 (git)
         - liblc3 (git)
+        - liblcevc-dec (git)
         - liblensfun (git)
             - disabled by default
         - libmodplug (MSYS2 package)
@@ -140,6 +141,7 @@ For information about the compiler environment see the wiki, there you also have
         - libquirc (git)
         - librist (git)
         - librtmp (git)
+            - disabled by default
         - librubberband (git)
         - libssh (MSYS2 package)
         - libsvthevc (git) (using non-upstream patch)
@@ -160,6 +162,7 @@ For information about the compiler environment see the wiki, there you also have
         - vulkan (git)
     - Full shared dependencies (in addition to Full)
         - libopenh264 (official binaries)
+            - disabled by default
         - opencl (headers and import definitions from Khronos git)
             - requires OpenCL.dll and an OpenCL implementation at runtime
 
@@ -326,7 +329,7 @@ If there's some error during compilation follow these steps:
 
 1. Make sure you're using the latest version of this suite by downloading the [latest version](https://github.com/m-ab-s/media-autobuild_suite/archive/master.zip) and replacing all files with the new ones;
 2. If you know which part it's crashing on, delete that project's folder in /build and run the script again (ex: if x264 is failing, try deleting x264-git folder in /build);
-3. If it still doesn't work, [create an issue](https://github.com/m-ab-s/media-autobuild_suite/issues/new) and paste the URL to `logs.zip` that the script gives or attach the file yourself to the issue page.
+3. If it still doesn't work, [create an issue](https://github.com/m-ab-s/media-autobuild_suite/issues/new/choose) and attach the `logs.zip` that the script gives to the issue page.
 4. If the problem isn't reproducible by the contributors of the suite, it's probably a problem on your side. Delete /msys64 and /local64 if they exist. /build is usually safe to keep and saves time;
 5. If the problem is reproducible, it could be a problem with the package itself or the contributors will find a way to probably make it work.
 6. If you compile with `--enable-cuda-nvcc`, see [Notes about CUDA SDK](#notes-about-cuda-sdk)
