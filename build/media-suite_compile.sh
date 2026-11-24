@@ -2706,7 +2706,7 @@ if [[ $ffmpeg != no ]]; then
                 --bindir="$LOCALDESTDIR/bin-video" "${FFMPEG_OPTS[@]}"
             # cosmetics
             sed -ri "s/ ?--($sedflags)=(\S+[^\" ]|'[^']+')//g" config.h
-            do_make -j1 && do_makeinstall -j1
+            do_make && do_makeinstall
             ! disabled_any debug "debug=gdb" &&
                 create_debug_link "$LOCALDESTDIR"/bin-video/ff{mpeg,probe,play}.exe
             cd_safe ..
