@@ -1765,7 +1765,7 @@ set "TERM="
 type nul >>"%instdir%\msys64\home\%USERNAME%\.minttyrc"
 for /F "tokens=2 delims==" %%b in ('findstr /i TERM "%instdir%\msys64\home\%USERNAME%\.minttyrc"') do set TERM=%%b
 if not defined TERM (
-    printf %%s\n Locale=en_US Charset=UTF-8 Font=Consolas Columns=120 Rows=30 TERM=xterm-256color ^
+    printf %%s\n Locale=en_US Charset=UTF-8 Font=Consolas Columns=126 Rows=67 TERM=xterm-256color BoldAsFont=yes FontHeight=12 ^
     > "%instdir%\msys64\home\%USERNAME%\.minttyrc"
     set "TERM=xterm-256color"
 )
